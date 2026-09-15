@@ -380,3 +380,25 @@ Não há criptografia do banco nesta fase: o dado é local, do próprio usuário
 
 - O CLI `sqlite3` continua **não instalado** (opcional): `sudo apt install sqlite3` para inspeção manual.
 - Alternativa sem instalar nada: usar o Electron como runtime Node (exemplo na seção 9) ou o DB Browser for SQLite (gráfico).
+
+## 13. Dados de exemplo (povoamento)
+
+Para testar a aplicação com dados realistas existe um povoamento de
+demonstração em `scripts/popular-banco.mjs`. Ele **não faz parte do núcleo** —
+é ferramenta de desenvolvimento (como `verificar-ambiente.mjs`) e não cria
+regras de negócio: passa **somente** pela camada de aplicação (serviços),
+nunca por SQL direto.
+
+```bash
+npm run popular-banco                      # banco real do usuário (fora do repositório)
+npm run popular-banco -- --recriar         # apaga pulso.db/-wal/-shm e recria
+npm run popular-banco -- --diretorio /tmp/pulso-demo
+```
+
+- cria a identidade de exemplo **Alice / Nyx** com status, progressão, projetos,
+  missões, transações, orçamentos e lista de desejos;
+- é **determinístico** (datas fixas), sem rede e sem aleatoriedade;
+- **nunca** sobrescreve um banco que já tenha jogador: exige `--recriar`, que é
+  explícito e remove `pulso.db`, `pulso.db-wal` e `pulso.db-shm`;
+- roda com o Node embutido do Electron (`ELECTRON_RUN_AS_NODE=1 electron …`),
+  pois depende do `node:sqlite` (ver ADR-009).

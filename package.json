@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "test": "ELECTRON_RUN_AS_NODE=1 electron --test \"tests/**/*.test.mjs\"",
-    "verificar-ambiente": "node scripts/verificar-ambiente.mjs"
+    "verificar-ambiente": "node scripts/verificar-ambiente.mjs",
+    "popular-banco": "ELECTRON_RUN_AS_NODE=1 electron scripts/popular-banco.mjs"
   },
   "engines": {
     "node": ">=20.0.0",

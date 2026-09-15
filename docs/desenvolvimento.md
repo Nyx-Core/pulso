@@ -34,6 +34,7 @@ npm install                      # Fase 00: nenhuma dependência externa
 | `npm test` | Testes unitários + teste de fumaça do Electron (inicia/encerra a app 2×) |
 | `npx electron . --teste-fumaca` | Teste de fumaça direto: valida inicialização e imprime relatório JSON |
 | `npm run verificar-ambiente` | Relatório do ambiente (Node, npm, Git, Electron, estrutura) |
+| `npm run popular-banco` | Povoamento de dados de exemplo (banco real; `-- --recriar` recria do zero) — ver `docs/banco-de-dados.md`, seção 13 |
 
 **Requisito dos testes de integração:** sessão gráfica ativa (X11/Wayland) ou `xvfb-run` (`sudo apt install xvfb`).
 
