@@ -155,6 +155,14 @@ async function validarCicloCompleto({ tentativa = 1 } = {}) {
   // conta a missão criada e mostra a receita de R$ 123,45 do período.
   assert.equal(r.dashboard.dadosCriados?.missaoOk, true, 'missão do teste de fumaça não foi criada');
   assert.equal(r.dashboard.dadosCriados?.transacaoOk, true, 'receita do teste de fumaça não foi criada');
+  // Cadeia das Fases 10 a 14 pela ponte real (IPC): serviço → recorrência →
+  // geração de ocorrências. É aqui que um canal trocado, um campo faltando
+  // ou um `traduzirResultadoOperacao` divergente apareceria — nada disso é
+  // visível nos testes de núcleo, que chamam os serviços direto.
+  assert.equal(r.dashboard.dadosCriados?.servicoOk, true, 'serviço não foi criado pela ponte');
+  assert.equal(r.dashboard.dadosCriados?.recorrenciaOk, true, 'recorrência não foi criada pela ponte');
+  assert.equal(r.dashboard.dadosCriados?.geracaoOk, true, 'ocorrência não foi gerada pela ponte');
+  assert.equal(r.dashboard.dadosCriados?.erro, undefined, `cadeia de serviços falhou: ${r.dashboard.dadosCriados?.erro}`);
   assert.match(r.dashboard.financas, /123,45/, `receita não refletida no dashboard: ${r.dashboard.financas}`);
   assert.match(r.dashboard.missoes, /PENDENTES/, 'bloco de missões não renderizou contagens');
   assert.doesNotMatch(r.dashboard.missoes, /Nada registrado ainda/, 'missão criada não apareceu no resumo');

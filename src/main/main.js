@@ -211,16 +211,47 @@ function executarTesteFumaca(janela) {
       const dadosCriados = await janela.webContents.executeJavaScript(
         `(async () => {
           const hoje = new Date().toISOString().slice(0, 10);
-          const missao = await window.pulso.missao.criar({ titulo: 'Miss\\u00e3o do teste de fuma\\u00e7a' });
-          const transacao = await window.pulso.financa.criarTransacao({
-            jogadorId: ${Number(jogadorId) || 0},
-            tipo: 'receita',
-            valorCentavos: 12345,
-            categoria: 'salario',
-            descricao: 'Receita do teste de fuma\\u00e7a',
-            data: hoje,
-          });
-          return { missaoOk: !!missao && missao.ok === true, transacaoOk: !!transacao && transacao.ok === true };
+          const jogadorId = ${Number(jogadorId) || 0};
+          const passo = [];
+          const marca = (nome, valor) => passo.push([nome, !!valor]);
+          try {
+            const missao = await window.pulso.missao.criar({ titulo: 'Miss\\u00e3o do teste de fuma\\u00e7a' });
+            marca('missaoOk', missao && missao.ok === true);
+            const transacao = await window.pulso.financa.criarTransacao({
+              jogadorId, tipo: 'receita', valorCentavos: 12345, categoria: 'salario',
+              descricao: 'Receita do teste de fuma\\u00e7a', data: hoje,
+            });
+            marca('transacaoOk', transacao && transacao.ok === true);
+
+            // Cadeia das Fases 10 a 16 pela ponte REAL (IPC), na ordem em que o
+            // operador usaria: servico -> recorrencia -> geracao. A Fase 17
+            // exige validar o sistema integrado, e a ponte e onde um canal
+            // trocado ou um campo faltando apareceria — coisa que os testes
+            // de nucleo nao enxergam.
+            const servico = await window.pulso.servico.criar({
+              jogadorId, nome: 'Servico do teste de fumaca',
+              categoria: 'contas', valorEsperado: 5000,
+            });
+            marca('servicoOk', servico && servico.ok === true);
+            if (servico && servico.ok) {
+              const recorrencia = await window.pulso.recorrencia.criar({
+                jogadorId, servicoId: servico.servico.id, frequencia: 'mensal',
+                dataInicio: hoje, diaVencimento: Number(hoje.slice(8, 10)),
+                valorEsperado: 5000,
+              });
+              marca('recorrenciaOk', recorrencia && recorrencia.ok === true);
+              if (recorrencia && recorrencia.ok) {
+                const geracao = await window.pulso.recorrencia.gerar(
+                  recorrencia.recorrencia.id,
+                  { periodoInicio: hoje.slice(0, 7) + '-01', periodoFim: hoje, hoje },
+                );
+                marca('geracaoOk', geracao && geracao.ok === true);
+              }
+            }
+            return Object.assign(Object.fromEntries(passo), { passos: passo });
+          } catch (erro) {
+            return { erro: String((erro && erro.message) || erro), passos: passo };
+          }
         })()`,
         true,
       );
