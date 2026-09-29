@@ -34,7 +34,10 @@ Registro de necessidades identificadas durante as fases que **serão resolvidas 
 | P-029 | Orçamento geral (multi-categoria) | fase futura a definir | Fase 08: orçamentos apenas por categoria de despesa |
 | P-030 | Moedas adicionais além de BRL | fase futura a definir | Fase 08: `MOEDA` centralizada no domínio (`financas.md` §2) |
 | P-031 | Integração financeira das fases seguintes (loja/serviços usam o motor) | 09 — Loja / 10 — Serviços | Fase 08 entrega o motor: transações, carteira, orçamento |
-| P-032 | Teste de IPC em execução (handlers `ipcMain`) e e2e da interface | 17 — Testes e Estabilização | hoje o contrato IPC é coberto por análise estática (`tests/unidade/ipc-progressao.test.mjs`) + teste de fumaça; `src/main/main.js` não é importável em teste (executa o bootstrap do Electron) |
+| P-032 | Teste de IPC em execução (handlers `ipcMain`) e e2e da interface | 17 — Testes e Estabilização | **Parcialmente resolvido na Fase 17:** o teste de fumaça agora exercita serviço → recorrência → geração pela ponte IPC real. Segue em aberto o e2e de interface com cliques reais (as telas em si), que exige ferramenta dedicada |
+| P-033 | CHECK de `energia/foco/estresse/criatividade` entre 0 e 100 no banco | fase futura | continua P-021: o domínio valida antes de gravar; o banco aceitaria valor fora da faixa se a escrita viesse de fora do domínio |
+| P-034 | Cobertura de código medida (relatório de linhas cobertas) | fase futura | a Fase 17 ampliou a cobertura por CENÁRIO (o que é verificado), não por LINHA; a meta percentual segue a definir |
+| P-035 | Teste de carga / muitas operações seguidas | fase futura | a Fase 17 verificou operações repetidas e reinicialização, mas não volume alto; o banco é local e de uso pessoal |
 
 ## Pendências resolvidas
 

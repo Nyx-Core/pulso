@@ -27,7 +27,7 @@ Fases conhecidas do projeto. Nenhuma fase antecipa o conteúdo da seguinte; o de
 | 14 | Conquistas | Conquistas e marcos | ⬜ Pendente |
 | 15 | Dashboard | Painel consolidado definitivo | ✅ Concluída |
 | 16 | Polimento | Refinamento visual e de experiência | ✅ Concluída |
-| 17 | Testes e Estabilização | Cobertura, correções e estabilidade | ⬜ Pendente |
+| 17 | Testes e Estabilização | Cobertura, correções e estabilidade | ✅ Concluída |
 | 18 | Portabilidade | Pacotes separados: Linux, Windows e pendrive | ⬜ Pendente |
 
 ## Observações
