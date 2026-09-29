@@ -178,6 +178,8 @@ c1a06dd  fix(interface): ajuste para a largura mínima da janela (Fase 16)
 cbf488d  test(interface): contrato da camada de interface compartilhada (Fase 16)
 60e0342  docs(fase-16): registra as decisões visuais e o relatório da fase
 45b1723  chore(interface): remove a regra .dash-vazio que sobrou sem uso
+eefc66f  docs(fase-16): atualiza contagem de testes e a lista de commits
+f139fb2  test(interface): cobre também as despachadoras de ação destrutiva
 ```
 
 Documentação: `docs/interface.md` (seção 8), `docs/testes.md` (seção 6.1) e
