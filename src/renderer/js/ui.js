@@ -62,16 +62,6 @@ function estadoVazio(titulo, dica) {
 }
 
 /**
- * Liga/desliga o estado "armado" de um botão destrutivo (segunda etapa da
- * confirmação inline). Ao desarmar, o rótulo volta ao original.
- */
-function armar(botao, armado, rotulo = 'EXCLUIR', rotuloArmado = 'CONFIRMAR') {
-  if (!botao) return;
-  botao.classList.toggle('armed', Boolean(armado));
-  botao.textContent = armado ? rotuloArmado : rotulo;
-}
-
-/**
  * Confirmação explícita para ações destrutivas ou irreversíveis.
  * Devolve `true` somente quando o usuário confirma. O foco volta ao
  * elemento de origem; Esc e o clique no fundo equivalem a "cancelar".
@@ -180,4 +170,4 @@ function confirmar({
   });
 }
 
-window.__pulsoUI = { avisar, limparAviso, estadoVazio, armar, confirmar };
+window.__pulsoUI = { avisar, limparAviso, estadoVazio, confirmar };

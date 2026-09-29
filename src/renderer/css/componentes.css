@@ -122,14 +122,6 @@ button:disabled {
   color: var(--pulso-branco);
 }
 
-/* "Armado": segunda etapa da confirmação inline. O preenchimento sólido é o
-   sinal de que a exclusão está prestes a acontecer. */
-.botao-perigo.armed {
-  background: var(--pulso-perigo);
-  color: var(--pulso-preto);
-  font-weight: 700;
-}
-
 /* Botão de ícone (navegação ‹ › do período): quadrado, sem texto. */
 .botao-icone {
   display: inline-flex;

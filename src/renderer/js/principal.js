@@ -56,10 +56,8 @@ let filtroFinancaAtual = 'todas';
 let categoriaFiltroFinanca = '';
 let transacaoAtualId = null;
 let modoEdicaoTransacao = false;
-let exclusaoTransacaoArmada = false;
 let orcamentoAtualId = null;
 let modoEdicaoOrcamento = false;
-let exclusaoOrcamentoArmada = false;
 let orcamentosCarregadosParaEdicao = [];
 
 function consultar(id) {
@@ -1024,7 +1022,6 @@ function aplicarFiltroTipoFinanca(botao) {
 function exibirFormularioTransacao(transacao = null) {
   modoEdicaoTransacao = !!transacao;
   transacaoAtualId = transacao?.id ?? null;
-  exclusaoTransacaoArmada = false;
   elementos.formularioTransacaoTituloSecao.textContent = modoEdicaoTransacao ? 'EDITAR TRANSAÇÃO' : 'NOVA TRANSAÇÃO';
   elementos.formularioTransacaoTitulo.textContent = modoEdicaoTransacao ? 'MOVER DINHEIRO' : 'REGISTRAR MOVIMENTAÇÃO';
   elementos.campoTransacaoTipo.value = modoEdicaoTransacao ? transacao.tipo : 'receita';
@@ -1091,20 +1088,21 @@ function abrirEdicaoTransacao(id) {
   if (atual) exibirFormularioTransacao(atual);
 }
 
-/** Exclusão controlada: primeiro clique arma, segundo confirma. */
+/** Exclusão de transação: confirmação explícita, como nas demais ações destrutivas. */
 async function excluirTransacao() {
   if (!transacaoAtualId) return;
-  __pulsoUI.limparAviso(elementos.avisoFormularioTransacao);
-  if (!exclusaoTransacaoArmada) {
-    exclusaoTransacaoArmada = true;
-    elementos.botaoExcluirTransacao.textContent = 'CONFIRMAR EXCLUSÃO';
-    __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Excluir esta transação? Ela deixará de participar do saldo. Clique novamente para confirmar.', 'atencao');
-    return;
-  }
+  const atual = transacoesCarregadas.find((t) => t.id === transacaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR TRANSAÇÃO',
+    texto: 'A movimentação deixa de existir e o saldo é recalculado sem ela.',
+    alvo: atual ? `${atual.descricao || 'Sem descrição'} · ${formatarDataSimples(atual.ocorridaEm)}` : '',
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteFinanca().excluirTransacao(transacaoAtualId);
     if (!resultado.ok) {
-      armarExclusaoTransacao(false);
       __pulsoUI.avisar(elementos.avisoFormularioTransacao, resultado.mensagem ?? 'Não foi possível excluir.', 'erro');
       return;
     }
@@ -1112,23 +1110,15 @@ async function excluirTransacao() {
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    armarExclusaoTransacao(false);
     __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao excluir transação — ${erro.message}`, erro);
   }
-}
-
-/** Liga/desliga o estado armado do botão de exclusão de transação. */
-function armarExclusaoTransacao(armado) {
-  exclusaoTransacaoArmada = armado;
-  elementos.botaoExcluirTransacao.textContent = armado ? 'CONFIRMAR EXCLUSÃO' : 'EXCLUIR';
 }
 
 /** Exibe o formulário de orçamento (criação ou edição). */
 function exibirFormularioOrcamento(orcamento = null) {
   modoEdicaoOrcamento = !!orcamento;
   orcamentoAtualId = orcamento?.id ?? null;
-  exclusaoOrcamentoArmada = false;
   elementos.formularioOrcamentoTituloSecao.textContent = modoEdicaoOrcamento ? 'EDITAR ORÇAMENTO' : 'NOVO ORÇAMENTO';
   elementos.formularioOrcamentoTitulo.textContent = modoEdicaoOrcamento ? 'REPLANEJAR GASTOS' : 'PLANEJAR GASTOS';
   preencherCategorias(
@@ -1207,20 +1197,21 @@ async function salvarOrcamento() {
   }
 }
 
-/** Exclusão controlada de orçamento: armar → confirmar. */
+/** Exclusão de orçamento: confirmação explícita, como nas demais ações destrutivas. */
 async function excluirOrcamento() {
   if (!orcamentoAtualId) return;
-  __pulsoUI.limparAviso(elementos.avisoFormularioOrcamento);
-  if (!exclusaoOrcamentoArmada) {
-    exclusaoOrcamentoArmada = true;
-    elementos.botaoExcluirOrcamento.textContent = 'CONFIRMAR EXCLUSÃO';
-    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Excluir este orçamento? O planejamento deixará de ser acompanhado. Clique novamente para confirmar.', 'atencao');
-    return;
-  }
+  const orcamento = orcamentosCarregadosParaEdicao.find((o) => o.id === orcamentoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR ORÇAMENTO',
+    texto: 'O planejamento deixa de ser acompanhado. As movimentações já registradas permanecem.',
+    alvo: orcamento?.nome || rotuloCategoria(orcamento?.categoria),
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteFinanca().excluirOrcamento(orcamentoAtualId);
     if (!resultado.ok) {
-      armarExclusaoOrcamento(false);
       __pulsoUI.avisar(elementos.avisoFormularioOrcamento, resultado.mensagem ?? 'Não foi possível excluir.', 'erro');
       return;
     }
@@ -1228,16 +1219,9 @@ async function excluirOrcamento() {
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    armarExclusaoOrcamento(false);
     __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao excluir orçamento — ${erro.message}`, erro);
   }
-}
-
-/** Liga/desliga o estado armado do botão de exclusão de orçamento. */
-function armarExclusaoOrcamento(armado) {
-  exclusaoOrcamentoArmada = armado;
-  elementos.botaoExcluirOrcamento.textContent = armado ? 'CONFIRMAR EXCLUSÃO' : 'EXCLUIR';
 }
 
 // ── Missões (Fase 05) ─────────────────────────────────────────────────
