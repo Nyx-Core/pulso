@@ -135,7 +135,9 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--pulso-alvo-minimo);
+  /* largura = altura: o glifo fica quadrado e alinhado ao rótulo do mês */
+  min-width: var(--pulso-alvo-icone);
+  width: var(--pulso-alvo-icone);
   padding: 4px 8px;
   font-size: 16px;
   line-height: 1;

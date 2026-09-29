@@ -46,6 +46,9 @@
   /* alvo mínimo de toque/teclado (WCAG 2.5.8 — 24px) */
   --pulso-alvo-minimo: 28px;
 
+  /* lado do botão só de ícone: quadrado, alinhado ao texto vizinho */
+  --pulso-alvo-icone: 32px;
+
   --pulso-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', ui-monospace,
     'DejaVu Sans Mono', Consolas, monospace;
 }

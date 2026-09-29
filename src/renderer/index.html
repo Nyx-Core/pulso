@@ -170,9 +170,9 @@
         <section class="dash-cartao" aria-label="Situação financeira">
           <p class="rotulo-secao">FINANÇAS</p>
           <div class="dash-periodo" role="group" aria-label="Período financeiro">
-            <button type="button" id="dash-periodo-anterior" class="botao-secundario" aria-label="Mês anterior">‹</button>
+            <button type="button" id="dash-periodo-anterior" class="botao-secundario botao-icone" aria-label="Mês anterior">‹</button>
             <span class="dash-periodo-rotulo" id="dash-periodo-rotulo">—</span>
-            <button type="button" id="dash-periodo-proximo" class="botao-secundario" aria-label="Mês seguinte">›</button>
+            <button type="button" id="dash-periodo-proximo" class="botao-secundario botao-icone" aria-label="Mês seguinte">›</button>
             <button type="button" id="dash-periodo-atual" class="botao-secundario">MÊS ATUAL</button>
           </div>
           <div class="dash-contagens" id="dash-financas"></div>
@@ -521,7 +521,9 @@
 
         <label for="campo-transacao-valor">VALOR <span class="obrigatorio">*</span></label>
         <input id="campo-transacao-valor" name="valor" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14"
+               aria-describedby="dica-campo-transacao-valor" />
+        <p class="dica-campo" id="dica-campo-transacao-valor">Use vírgula para os centavos: 1.250,75</p>
 
         <label for="campo-transacao-categoria">CATEGORIA <span class="obrigatorio">*</span></label>
         <select id="campo-transacao-categoria" name="categoria"></select>
@@ -556,7 +558,9 @@
 
         <label for="campo-orcamento-valor">LIMITE <span class="obrigatorio">*</span></label>
         <input id="campo-orcamento-valor" name="valor" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14"
+               aria-describedby="dica-campo-orcamento-valor" />
+        <p class="dica-campo" id="dica-campo-orcamento-valor">Use vírgula para os centavos: 600,00</p>
 
         <label for="campo-orcamento-inicio">INÍCIO <span class="obrigatorio">*</span></label>
         <input id="campo-orcamento-inicio" name="inicio" type="date" />
@@ -715,7 +719,9 @@
 
         <label for="campo-desejo-preco">PREÇO ESPERADO <span class="obrigatorio">*</span></label>
         <input id="campo-desejo-preco" name="precoEsperado" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" 
+               aria-describedby="dica-campo-desejo-preco" />
+        <p class="dica-campo" id="dica-campo-desejo-preco">Use vírgula para os centavos: 1.500,00</p>
 
         <p class="aviso" id="aviso-formulario-desejo" role="alert"></p>
 
@@ -740,7 +746,9 @@
       <form id="formulario-compra" novalidate>
         <label for="campo-compra-preco">PREÇO FINAL PAGO <span class="obrigatorio">*</span></label>
         <input id="campo-compra-preco" name="precoFinal" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" 
+               aria-describedby="dica-campo-compra-preco" />
+        <p class="dica-campo" id="dica-campo-compra-preco">Use vírgula para os centavos: 1.500,00</p>
 
         <label for="campo-compra-data">DATA DA COMPRA <span class="opcional">(opcional — padrão: hoje)</span></label>
         <input id="campo-compra-data" name="data" type="date" />
@@ -867,7 +875,9 @@
 
         <label for="campo-servico-valor">VALOR ESPERADO <span class="obrigatorio">*</span></label>
         <input id="campo-servico-valor" name="valorEsperado" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" 
+               aria-describedby="dica-campo-servico-valor" />
+        <p class="dica-campo" id="dica-campo-servico-valor">Estimativa do serviço. Use vírgula: 89,90</p>
 
         <label for="campo-servico-descricao">DESCRIÇÃO <span class="opcional">(opcional)</span></label>
         <textarea id="campo-servico-descricao" name="descricao" maxlength="2000" rows="4"></textarea>
@@ -1016,7 +1026,9 @@
 
         <label for="campo-conta-valor">VALOR ESPERADO <span class="obrigatorio">*</span></label>
         <input id="campo-conta-valor" name="valorEsperado" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" 
+               aria-describedby="dica-campo-conta-valor" />
+        <p class="dica-campo" id="dica-campo-conta-valor">Previsto para o vencimento. Use vírgula: 89,90</p>
 
         <label for="campo-conta-descricao">DESCRIÇÃO <span class="opcional">(opcional)</span></label>
         <textarea id="campo-conta-descricao" name="descricao" maxlength="2000" rows="4"></textarea>
@@ -1197,7 +1209,9 @@
 
         <label for="campo-recorrencia-valor">VALOR ESPERADO <span class="obrigatorio">*</span></label>
         <input id="campo-recorrencia-valor" name="valorEsperado" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" maxlength="14" 
+               aria-describedby="dica-campo-recorrencia-valor" />
+        <p class="dica-campo" id="dica-campo-recorrencia-valor">Previsto a cada recorrência. Use vírgula: 89,90</p>
 
         <label for="campo-recorrencia-descricao">DESCRIÇÃO <span class="opcional">(opcional)</span></label>
         <textarea id="campo-recorrencia-descricao" name="descricao" maxlength="2000" rows="4"></textarea>
@@ -1221,7 +1235,9 @@
 
         <label for="campo-pagamento-valor">VALOR PAGO <span class="obrigatorio">*</span></label>
         <input id="campo-pagamento-valor" name="valorPago" inputmode="decimal"
-               placeholder="0,00" autocomplete="off" spellcheck="false" />
+               placeholder="0,00" autocomplete="off" spellcheck="false" 
+               aria-describedby="dica-campo-pagamento-valor" />
+        <p class="dica-campo" id="dica-campo-pagamento-valor">Valor efetivamente pago. Use vírgula: 89,90</p>
 
         <label for="campo-pagamento-data">DATA DO PAGAMENTO <span class="obrigatorio">*</span></label>
         <input id="campo-pagamento-data" name="paidAt" type="date" />
