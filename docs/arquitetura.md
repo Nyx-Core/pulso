@@ -186,3 +186,44 @@ Para não fechar portas no futuro:
 - nenhuma credencial no repositório (ver `regras-do-projeto.md`).
 
 **Implementado na Fase 01** (ver seção 6): sandbox ativado, preload em CJS com ponte mínima e CSP restritiva no renderer.
+
+## 9. Regras de integridade confirmadas na Fase 17
+
+A homologação não criou regra nova: **verificou** as existentes. Três
+foram confirmadas na prática e vale registrá-las como decisão, porque duas
+delas não estavam onde se poderia supor.
+
+### ADR-012 — Estado terminal se valida no serviço de aplicação, não só na tela (Fase 17)
+
+`arquivar` é estado terminal para serviço, recorrência, missão, conta e
+desejo. A regra estava implementada **no renderer** (o formulário de conta
+filtrava serviços arquivados) mas **não no serviço de aplicação**: chamar
+`servicoContas.criar()` diretamente aceitava um serviço arquivado.
+
+**Decisão:** regra de estado terminal vale sempre no **núcleo**. A
+interface filtra por comodidade; o serviço recusa. Cópia de formulário
+antigo, chamada direta ou script externo não contorna mais nada.
+
+### ADR-013 — Datas de calendário são estritamente `AAAA-MM-DD` (Fase 17)
+
+`conta.js` e `recorrencia.js` já exigiam o formato. `financa.js` aceitava
+qualquer texto que o `new Date()` entendesse e normalizava sozinho — o que
+fazia `10/09/2026` virar **2026-10-09** (mês/dia), gravando data errada sem
+aviso.
+
+**Decisão:** um único validador de data civil, estrito, nos três módulos.
+Formato ambíguo é **recusado**, nunca adivinhado: no histórico
+financeiro, adivinhar é pior do que recusar.
+
+### ADR-014 — Regra que protege dado reside em dois níveis (Fase 17)
+
+Valores em centavos, unicidade de pagamento/compra, idempotência da
+geração e atomicidade das operações financeiras têm **dupla barreira**:
+
+1. **domínio/aplicação** — valida e recusa com mensagem explicativa;
+2. **banco** — `CHECK`, `NOT NULL`, `FOREIGN KEY` e `UNIQUE` recusam na
+   última linha, mesmo que a escrita venha de fora do domínio.
+
+Verificado na Fase 17 com o banco cheio: `foreign_key_check` limpo,
+`integrity_check: ok`, nenhum dado órfão, e CASCADE alcançando as 11
+tabelas de negócio.

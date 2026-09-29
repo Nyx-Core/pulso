@@ -302,6 +302,49 @@ npm test → 413 testes · 413 passam · 0 falham
   `errosConsole: []`, dashboard visível com os valores de uma missão e uma
   transação recém-criados (fluxos críticos verificados de ponta a ponta).
 
+## 6.2 Fase 17 — Homologação
+
+A fase 17 ampliou a cobertura sem criar funcionalidade nova. O relatório
+completo está em `REPORTS/homologacao-fase-17.md`.
+
+```text
+npm test                  → 533 testes · 533 passam · 0 falham
+npm run test:homologacao  → 120 testes · 120 passam · 🟢 APTO
+```
+
+### 6.2.1 O que a fase adicionou
+
+| Arquivo | Testes | O que fixa |
+| --- | --- | --- |
+| `tests/criticos/falhas.test.mjs` | 9 | Comportamento de falha: a falha é sinalizada **e nada é gravado** (saldo e tabelas intactos). Cobre registro inexistente, valor/data/categoria inválidos, pagamento duplicado, compra duplicada, recorrência e serviço arquivados, conta cancelada, transição de missão proibida. |
+| `tests/integracao/homologacao/fluxos-completos/ciclo-do-operador.test.mjs` | 1 | Ciclo de 12 etapas: jogador → status → missão → projeto → progressão → finanças → serviço → recorrência → conta → pagamento → transação → carteira → dashboard. Afirma que serviço e conta **não** movem dinheiro, que a geração é idempotente e que o dashboard é somente leitura. |
+| `tests/integracao/homologacao/servicos-contas.test.mjs` | 2 | Serviço → recorrência → conta → pagamento, e que o valor debitado é o **realmente pago**, não o esperado. |
+| `tests/integracao/homologacao/loja-financas.test.mjs` | 2 | Compra vira despesa na carteira, entra no histórico e guarda a diferença entre preço esperado e pago. |
+| `tests/criticos/integridade.test.mjs` (+2) | 2 | CASCADE nas 11 tabelas de negócio e varredura de FK violada / dado órfão com o banco cheio. |
+| `tests/integracao/inicializacao.test.mjs` (+4 asserções) | — | A cadeia serviço → recorrência → geração pela **ponte IPC real**, dentro do teste de fumaça. |
+
+### 6.2.2 Ambiente de homologação estendido
+
+`tests/utils/ambiente-homologacao.mjs` agora reproduz a fiação completa
+de `src/main/main.js` (Fases 01 a 16). Antes ligava só Fases 01–08, o que
+impedia verificar justamente a cadeia mais difícil do sistema.
+
+### 6.2.3 Testes que envelheceram
+
+A suíte de homologação ficou vermelha ao ser sincronizada com a `dev`:
+`fase-02` fixava o schema em v7 (hoje v14) e `fase-09-loja-pendente`
+afirmava que a loja não existia. Ambos foram corrigidos **derivando do
+código** (`MIGRACOES.length`) em vez de fixar números, para não quebrarem
+de novo.
+
+### 6.2.4 Bugs encontrados por estes testes
+
+| Sev. | Onde | Sintoma |
+| --- | --- | --- |
+| MÉDIO | `dominio/financa.js` | `10/09/2026` era reinterpretado como 2026-10-09 (mês/dia), gravando data errada sem aviso. |
+| MÉDIO | `servico-contas.js`, `servico-recorrencias.js` | Serviço arquivado ainda aceitava contas e recorrências; a regra existia só na interface. |
+| BAIXO | `dominio/loja.js` | 10 mensagens de erro sem acentuação chegavam ao usuário (único módulo do domínio assim). |
+
 ## 7. Regras
 
 - **Não criar testes de funcionalidades que ainda não existem.**
