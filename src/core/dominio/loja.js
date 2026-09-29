@@ -37,7 +37,7 @@ export const ROTULO_CATEGORIA_DESEJO = Object.freeze(
 export function validarCategoriaDesejo(categoria) {
   if (!CATEGORIAS_DESEJO_VALORES.includes(categoria)) {
     throw new ErroValidacao(
-      `Categoria invalida: ${String(categoria)}. Categorias: ${CATEGORIAS_DESEJO_VALORES.join(', ')}.`,
+      `Categoria inválida: ${String(categoria)}. Categorias: ${CATEGORIAS_DESEJO_VALORES.join(', ')}.`,
       'categoria',
     );
   }
@@ -70,7 +70,7 @@ export const PRIORIDADE_DESEJO_PADRAO = PRIORIDADES_DESEJO.NORMAL;
 
 export function validarPrioridadeDesejo(prioridade) {
   if (!PRIORIDADES_DESEJO_ORDEM.includes(prioridade)) {
-    throw new ErroValidacao(`Prioridade invalida: ${String(prioridade)}.`, 'prioridade');
+    throw new ErroValidacao(`Prioridade inválida: ${String(prioridade)}.`, 'prioridade');
   }
   return prioridade;
 }
@@ -112,7 +112,7 @@ const TRANSICOES_DESEJO = Object.freeze({
 
 export function validarEstadoDesejo(estado) {
   if (!ESTADOS_DESEJO_ORDEM.includes(estado)) {
-    throw new ErroValidacao(`Estado de desejo invalido: ${String(estado)}.`, 'estado');
+    throw new ErroValidacao(`Estado de desejo inválido: ${String(estado)}.`, 'estado');
   }
   return estado;
 }
@@ -126,7 +126,7 @@ export function transicaoDesejoPermitida(atual, proximo) {
 export function exigirTransicaoDesejo(atual, proximo) {
   if (!transicaoDesejoPermitida(atual, proximo)) {
     throw new ErroTransicao(
-      `Transicao nao permitida: "${ESTADOS_DESEJO_ROTULOS[atual]}" -> "${ESTADOS_DESEJO_ROTULOS[proximo]}".`,
+      `Transição não permitida: "${ESTADOS_DESEJO_ROTULOS[atual]}" → "${ESTADOS_DESEJO_ROTULOS[proximo]}".`,
     );
   }
   return proximo;
@@ -157,7 +157,7 @@ function textoNaoVazio(valor) {
 
 export function validarTituloDesejo(titulo) {
   if (!textoNaoVazio(titulo)) {
-    throw new ErroValidacao('O nome do item e obrigatorio.', 'titulo');
+    throw new ErroValidacao('O nome do item é obrigatório.', 'titulo');
   }
   const aparado = titulo.trim();
   if (aparado.length > TAMANHO_MAXIMO_DESEJO.TITULO) {
@@ -172,7 +172,7 @@ export function validarTituloDesejo(titulo) {
 export function validarDescricaoDesejo(descricao) {
   if (descricao === null || descricao === undefined || descricao === '') return null;
   if (typeof descricao !== 'string') {
-    throw new ErroValidacao('A descricao deve ser um texto.', 'descricao');
+    throw new ErroValidacao('A descrição deve ser um texto.', 'descricao');
   }
   const aparada = descricao.trim();
   if (aparada.length === 0) return null;
@@ -189,7 +189,7 @@ export function validarPrecoEsperado(valorCentavos) {
   try {
     return validarCentavosFinanca(valorCentavos);
   } catch {
-    throw new ErroValidacao('O preco esperado deve ser maior que zero (em centavos).', 'precoEsperado');
+    throw new ErroValidacao('O preço esperado deve ser maior que zero (em centavos).', 'precoEsperado');
   }
 }
 
@@ -197,14 +197,14 @@ export function validarPrecoFinal(valorCentavos) {
   try {
     return validarCentavosFinanca(valorCentavos);
   } catch {
-    throw new ErroValidacao('O preco final deve ser maior que zero (em centavos).', 'precoFinal');
+    throw new ErroValidacao('O preço final deve ser maior que zero (em centavos).', 'precoFinal');
   }
 }
 
 export function validarObservacaoCompra(observacao) {
   if (observacao === null || observacao === undefined || observacao === '') return null;
   if (typeof observacao !== 'string') {
-    throw new ErroValidacao('A observacao deve ser um texto.', 'observacao');
+    throw new ErroValidacao('A observação deve ser um texto.', 'observacao');
   }
   const aparada = observacao.trim();
   if (aparada.length === 0) return null;
@@ -224,7 +224,7 @@ export function validarDataCompra(data) {
   }
   const momento = new Date(`${data}T12:00:00Z`).getTime();
   if (!Number.isFinite(momento)) {
-    throw new ErroValidacao('A data da compra deve ser uma data valida.', 'data');
+    throw new ErroValidacao('A data da compra deve ser uma data válida.', 'data');
   }
   return data;
 }
