@@ -25,13 +25,13 @@
 ## 2. Testes executados
 
 ```text
-npm test                  → 533 testes · 533 passam · 0 falham
+npm test                  → 536 testes · 536 passam · 0 falham
 npm run test:homologacao  → 120 testes · 120 passam · 0 falham · 🟢 APTO
 ```
 
 | Suíte | Antes | Depois |
 | --- | --- | --- |
-| `npm test` (projeto) | 398 (na `dev`) | **533** |
+| `npm test` (projeto) | 398 (na `dev`) | **536** |
 | `npm run test:homologacao` | 105 (desatualizada) | **120** |
 
 O executor de homologação gera relatório numerado em `relatorios/`
@@ -164,11 +164,43 @@ Fase 08, e **envelheceu com o código**:
 sincronizada** — a divergência estava escondida porque ninguém rodava a
 homologação contra o código atual.
 
-### 4.5 Bugs NÃO encontrados
+### 4.5 BUG CRÍTICO — migração 014 travava a abertura sem a tabela `servico` (corrigido)
 
-Nenhum bug **crítico** ou **alto** foi encontrado. O núcleo se manteve
-íntegro: nenhuma exceção engolida, nenhum saldo alterado
-parcialmente, nenhum dado corrompido em caminho de erro.
+**Onde:** `src/core/database/migracoes.js` · `MIGRACAO_014`
+**Achado por:** relato de uso (aplicação não iniciava)
+**Severidade:** CRÍTICO — impede o uso da aplicação
+
+**Sintoma:** `Falha na migração 14 (campos-de-pagamentos...) - transação
+revertida: no such table: main.servico`, com a tela "a memória local
+(sqlite) falhou".
+
+**Causa:** a migração 014 cria `servico_conta_pagamento` com
+`REFERENCES servico(id)` e logo em seguida copia as linhas com
+`INSERT ... SELECT`. Com `PRAGMA foreign_keys = ON`, o SQLite **aceita o
+`CREATE TABLE`** (a FK não é validada ali) mas **valida o alvo no DML** — e
+o `INSERT` quebravava com "no such table".
+
+O comentário da própria migração já tratava exatamente esse caso para a
+tabela `transacao`; faltava a mesma guarda para `servico` (e para
+`servico_recorrencia`).
+
+**Conferido no banco real do ambiente:** ele está em **v13**, com
+`servico_conta` e `transacao` presentes, mas **sem a tabela `servico`** —
+exatamente o cenário que travava. Uma cópia desse banco migra para v14
+com integridade limpa depois da correção.
+
+**Correção:** cada vínculo recebe `REFERENCES` apenas quando a tabela
+alvo existe de fato; senão fica coluna simples. A proteção já existente
+para `transacao` foi reaproveitada, não duplicada.
+
+**Integridade não foi sacrificada:** no banco completo, as três FKs
+(`servico`, `servico_recorrencia`, `transacao`) continuam intactas —
+trocar um bug de inicialização por um bug de dados seria pior. Isso tem
+teste próprio.
+
+**Três testes de regressão** foram adicionados, e o principal foi
+verificado **falhando com a correção revertida**, reproduzindo a
+mensagem exata do relato.
 
 ---
 
@@ -213,6 +245,8 @@ d348eaf  fix(homologacao): corrige testes de fase que envelheceram com o schema
 83ad5c5  test(homologacao): cobre servicos→contas e loja→financas
 1684461  test(inicializacao): exercita a cadeia de servicos pela ponte real
 1f73ab2  docs(fase-17): marca a fase no roadmap e registra pendencias restantes
+fda88c3  docs(fase-17): relatorio de homologacao e ADRs de integridade
+708a85e  fix(banco): migracao 014 travava a abertura sem a tabela servico (BUG CRÍTICO)
 ```
 
 As correções de código saíram de branches temporárias `correcao/*`, já
@@ -224,10 +258,10 @@ removidas após a integração, como a fase determina.
 
 | Critério de conclusão | Estado |
 | --- | --- |
-| Testes automatizados passando | ✅ 533/533 + 120/120 homologação |
+| Testes automatizados passando | ✅ 536/536 + 120/120 homologação |
 | Fluxos integrados validados | ✅ ciclo completo de 12 etapas |
 | Regressão concluída | ✅ nenhuma quebra entre as correções |
-| Bugs críticos e altos resolvidos | ✅ nenhum encontrado |
+| Bugs críticos e altos resolvidos | ✅ 1 crítico corrigido (migração 014) |
 | Dados persistem corretamente | ✅ fechar/reabrir preserva tudo |
 | Operações financeiras íntegras | ✅ sem saldo parcial, sem duplicidade |
 | Dashboard reflete dados reais | ✅ saldo conferido contra a carteira |
