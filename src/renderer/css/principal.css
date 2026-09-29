@@ -1451,3 +1451,62 @@
   }
 }
 
+/* ── Janela estreita (Fase 16) ──────────────────────────────────────────
+   A largura mínima da janela é 800px (config/*.json). Nessa faixa o
+   conteúdo ainda cabe, mas as grades de duas colunas ficam apertadas e
+   os nomes longos começam a colidir com os rótulos de estado. O ajuste
+   é reduzir a coluna de rótulos e deixar o texto dos itens poder quebrar
+   em mais de uma linha, em vez de cortar com reticências. */
+
+@media (max-width: 900px) {
+  .missao-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .missao-card {
+    grid-template-columns: 1fr;
+  }
+
+  .missao-card-titulo,
+  .missao-card-descricao {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .missao-card-detalhes {
+    gap: var(--pulso-espaco-1) var(--pulso-espaco-2);
+  }
+
+  .toolbar-missoes {
+    align-items: stretch;
+  }
+
+  .filtros,
+  .filtros-extras {
+    width: 100%;
+  }
+
+  .filtros-extras select {
+    flex: 1 1 auto;
+  }
+
+  /* O botão de criação ocupa a linha inteira: é a ação principal da tela
+     e não deve ficar espremido ao lado dos filtros. */
+  .toolbar-missoes > .botao-primario {
+    width: 100%;
+  }
+}
+
+/* Altura curta (janela baixa): reduz respiro vertical para que a lista
+   e as ações do rodapé continuem visíveis sem rolagem desnecessária. */
+@media (max-height: 620px) {
+  .tela {
+    padding-block: 10px;
+  }
+
+  .acoes-missao,
+  .dash-atalhos {
+    margin-top: var(--pulso-espaco-3);
+  }
+}
+
