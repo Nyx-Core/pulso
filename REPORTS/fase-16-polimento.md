@@ -102,12 +102,12 @@ escrito. Agora há uma dica explícita, ligada por `aria-describedby`.
 ## 4. Testes realizados
 
 ```text
-npm test → 412 testes · 412 passam · 0 falham
+npm test → 413 testes · 413 passam · 0 falham
 ```
 
 - **398 testes preexistentes** — todos continuam passando, sem alteração de
   resultado. Nenhuma regra de negócio foi tocada.
-- **14 testes novos** (`tests/unidade/interface.test.mjs`) — contrato da
+- **15 testes novos** (`tests/unidade/interface.test.mjs`) — contrato da
   camada de apresentação por análise estática: feedback sempre tipado,
   componentes sem órfãos, integridade HTML ↔ JS, labels e ARIA,
   confirmação antes do núcleo, diálogo acessível por teclado, identidade
@@ -176,6 +176,8 @@ f90e2a5  feat(interface): confirmação nas ações destrutivas que não tinham 
 c1a06dd  fix(interface): ajuste para a largura mínima da janela (Fase 16)
 90f8c90  fix(interface): cancelar missão passa a pedir confirmação (Fase 16)
 cbf488d  test(interface): contrato da camada de interface compartilhada (Fase 16)
+60e0342  docs(fase-16): registra as decisões visuais e o relatório da fase
+45b1723  chore(interface): remove a regra .dash-vazio que sobrou sem uso
 ```
 
 Documentação: `docs/interface.md` (seção 8), `docs/testes.md` (seção 6.1) e

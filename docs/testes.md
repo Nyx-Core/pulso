@@ -251,7 +251,7 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 
 O bloco acima descreve os testes adicionados na fase:
 
-- `tests/unidade/interface.test.mjs` — 14 testes de **contrato de
+- `tests/unidade/interface.test.mjs` — 15 testes de **contrato de
   interface**, por análise estática (a camada de apresentação roda no
   renderer e não tem DOM disponível no runner):
 
@@ -292,7 +292,7 @@ verdade em vez de apenas passar.
 ### Estado da suíte
 
 ```text
-npm test → 412 testes · 412 passam · 0 falham
+npm test → 413 testes · 413 passam · 0 falham
 ```
 
 - 398 testes anteriores à fase, sem alteração de resultado — nenhuma regra
