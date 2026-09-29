@@ -110,14 +110,22 @@ test('descrição: opcional, aparada e limitada', () => {
 });
 
 // ── Datas ────────────────────────────────────────────────────────────────
-test('datas: normaliza para YYYY-MM-DD e rejeita inválidas', () => {
+test('datas: aceita apenas AAAA-MM-DD e rejeita o que não é data', () => {
   assert.equal(validarData('2026-09-10'), '2026-09-10');
-  assert.equal(validarData('2026-09-10T08:30:00Z'), '2026-09-10');
   assert.throws(() => validarData(''), ErroValidacao);
+  // Data de calendário com hora: recusada. Todo chamador de produção usa
+  // <input type="date"> ou uma data já em AAAA-MM-DD, e aceitar o formato
+  // ISO completo abria espaço para o parsing do Date reinterpretar a data
+  // no padrão mês/dia (10/09/2026 virava 9 de outubro) sem avisar ninguém.
+  assert.throws(() => validarData('2026-09-10T08:30:00Z'), ErroValidacao);
   assert.throws(() => validarData('2026-13-01'), ErroValidacao);
   assert.throws(() => validarData('2026-02-31'), ErroValidacao);
   assert.throws(() => validarData('amanhã'), ErroValidacao);
   assert.throws(() => validarData('2026-09-32'), ErroValidacao);
+  // Formatos brasileiros e ambíguos: recusados em vez de adivinhados.
+  assert.throws(() => validarData('10/09/2026'), ErroValidacao);
+  assert.throws(() => validarData('2026-9-1'), ErroValidacao);
+  assert.throws(() => validarData('09-10-2026'), ErroValidacao);
 });
 
 test('período: limites inclusivos e fim não anterior ao início', () => {

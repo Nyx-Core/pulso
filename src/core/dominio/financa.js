@@ -142,24 +142,24 @@ export function validarData(data) {
     throw new ErroValidacao('A data é obrigatória.', 'data');
   }
   const texto = data.trim();
-  const soData = /^\d{4}-\d{2}-\d{2}$/.test(texto);
-  const momento = new Date(texto).getTime();
-  if (!Number.isFinite(momento)) {
+  // SOMENTE `AAAA-MM-DD` é aceito — o mesmo padrão de `conta.js` e
+  // `recorrencia.js`. Antes, qualquer texto que o `new Date()` parsing
+  // entendesse era normalizado em silêncio, e "10/09/2026" virava
+  // 2026-10-09 (mês/dia em vez de dia/mês): o usuário achava que
+  // registrara 10 de setembro e o histórico guardava 9 de outubro.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+    throw new ErroValidacao('A data deve estar no formato AAAA-MM-DD.', 'data');
+  }
+  const [ano, mes, dia] = texto.split('-').map(Number);
+  const verificacao = new Date(Date.UTC(ano, mes - 1, dia));
+  const existe =
+    verificacao.getUTCFullYear() === ano &&
+    verificacao.getUTCMonth() === mes - 1 &&
+    verificacao.getUTCDate() === dia;
+  if (!existe) {
     throw new ErroValidacao('A data é inválida.', 'data');
   }
-  if (soData) {
-    const [ano, mes, dia] = texto.split('-').map(Number);
-    const checagem = new Date(Date.UTC(ano, mes - 1, dia));
-    const diaValido =
-      checagem.getUTCFullYear() === ano &&
-      checagem.getUTCMonth() === mes - 1 &&
-      checagem.getUTCDate() === dia;
-    if (!diaValido) {
-      throw new ErroValidacao('A data é inválida.', 'data');
-    }
-    return texto;
-  }
-  return new Date(texto).toISOString().slice(0, 10);
+  return texto;
 }
 
 /**

@@ -46,6 +46,17 @@ export class ServicoContas {
     if (servico.jogadorId !== jogadorId) {
       throw new ErroValidacao('O serviço selecionado não pertence a este jogador.', 'servicoId');
     }
+    // Arquivar é estado terminal: um serviço encerrado não volta a produzir
+    // ocorrências. A interface já esconde esses serviços do formulário, mas
+    // a regra precisa valer também no núcleo — senão basta chamar o serviço
+    // direto (ou um dado antigo do formulário) para criar conta de um
+    // serviço que não deveria mais gerar nenhuma.
+    if (servico.estado === 'arquivado') {
+      throw new ErroValidacao(
+        'Um serviço arquivado está encerrado e não gera novas contas.',
+        'servicoId',
+      );
+    }
     return servico;
   }
 
