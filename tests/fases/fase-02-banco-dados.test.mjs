@@ -14,8 +14,8 @@ import { aplicarMigracoes, versaoAtual, MIGRACOES } from '../../src/core/databas
 import { abrirConexao, fecharConexao, verificarIntegridade } from '../../src/core/database/conexao.js';
 import { criarBancoTemporario, destruirBancoTemporario } from '../utils/ambiente-homologacao.mjs';
 
-test('F02 banco | migrações | lista oficial tem 7 versões sequenciais', () => {
-  assert.equal(MIGRACOES.length, 7);
+test('F02 banco | migrações | lista oficial é sequencial e sem lacunas', () => {
+  assert.ok(MIGRACOES.length >= 7, 'o schema evoluiu além da Fase 02');
   MIGRACOES.forEach((migracao, indice) => {
     assert.equal(migracao.versao, indice + 1);
     assert.match(migracao.nome, /^[a-z0-9-]+$/);
@@ -23,10 +23,12 @@ test('F02 banco | migrações | lista oficial tem 7 versões sequenciais', () =>
   });
 });
 
-test('F02 banco | migrações | banco temporário chega à v7 com todas as tabelas', () => {
+test('F02 banco | migrações | banco temporário chega à versão atual com todas as tabelas', () => {
   const ambiente = criarBancoTemporario('homolog-f02-');
   try {
-    assert.equal(versaoAtual(ambiente.banco), 7);
+    // A versão esperada vem do próprio código: fixá-la em número fez este
+    // arquivo quebrar a cada fase que adicionasse migração.
+    assert.equal(versaoAtual(ambiente.banco), MIGRACOES.length);
     const tabelas = new Set(
       ambiente.banco.prepare("SELECT name AS nome FROM sqlite_master WHERE type = 'table'").all().map((l) => l.nome),
     );
@@ -43,7 +45,7 @@ test('F02 banco | migrações | reaplicar é idempotente (não duplica)', () => 
   try {
     const segunda = aplicarMigracoes(ambiente.banco);
     assert.deepEqual(segunda.aplicadas, []);
-    assert.equal(versaoAtual(ambiente.banco), 7);
+    assert.equal(versaoAtual(ambiente.banco), MIGRACOES.length);
   } finally {
     destruirBancoTemporario(ambiente);
   }
@@ -52,12 +54,13 @@ test('F02 banco | migrações | reaplicar é idempotente (não duplica)', () => 
 test('F02 banco | migrações | falha real reverte e identifica a migração', () => {
   const ambiente = criarBancoTemporario('homolog-f02-falha-');
   try {
+    const proxima = MIGRACOES.length + 1;
     const quebrada = [
       ...MIGRACOES,
-      { versao: 8, nome: 'migracao-quebrada-proposital', cima: (banco) => banco.exec('CREATE TABLE homolog_quebrada (id INTEGER PRIMARY KEY); INSERT INTO homolog_quebrada (id) VALUES (1, 2);') },
+      { versao: proxima, nome: 'migracao-quebrada-proposital', cima: (banco) => banco.exec('CREATE TABLE homolog_quebrada (id INTEGER PRIMARY KEY); INSERT INTO homolog_quebrada (id) VALUES (1, 2);') },
     ];
-    assert.throws(() => aplicarMigracoes(ambiente.banco, quebrada), /Falha na migração 8/);
-    assert.equal(versaoAtual(ambiente.banco), 7, 'versão permanece 7 após rollback');
+    assert.throws(() => aplicarMigracoes(ambiente.banco, quebrada), new RegExp(`Falha na migração ${proxima}`));
+    assert.equal(versaoAtual(ambiente.banco), MIGRACOES.length, 'versão não avança após rollback');
     const tabelas = new Set(
       ambiente.banco.prepare("SELECT name AS nome FROM sqlite_master WHERE type = 'table'").all().map((l) => l.nome),
     );
@@ -107,8 +110,8 @@ test('F02 banco | inicializar | cria arquivo, migra e fecha com segurança', () 
   destruirBancoTemporario(ambiente);
   const estado = inicializarBanco({ diretorioDados: diretorio, nomeArquivo: 'pulso.db' });
   try {
-    assert.equal(estado.versaoSchema, 7);
-    assert.equal(estado.migracoesAplicadas.length, 7);
+    assert.equal(estado.versaoSchema, MIGRACOES.length);
+    assert.equal(estado.migracoesAplicadas.length, MIGRACOES.length);
   } finally {
     estado.fechar();
   }
