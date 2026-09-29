@@ -323,10 +323,12 @@ async function carregarContas() {
 function renderizarContas() {
   elementosConta.listaContas.replaceChildren();
   if (estadoConta.contas.length === 0) {
-    const vazio = document.createElement("p");
-    vazio.className = "missoes-vazio";
-    vazio.textContent = "Nenhuma conta nesta seleção.";
-    elementosConta.listaContas.append(vazio);
+    elementosConta.listaContas.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA CONTA NESTA SELEÇÃO',
+        'Gere as ocorrências de uma recorrência para criar as contas do período.',
+      ),
+    );
     return;
   }
   for (const conta of estadoConta.contas) {

@@ -306,10 +306,12 @@ async function carregarRecorrencias() {
 function renderizarRecorrencias() {
   elementosRecorrencia.listaRecorrencias.replaceChildren();
   if (estadoRecorrencia.recorrencias.length === 0) {
-    const vazio = document.createElement("p");
-    vazio.className = "missoes-vazio";
-    vazio.textContent = "Nenhuma recorrência nesta seleção.";
-    elementosRecorrencia.listaRecorrencias.append(vazio);
+    elementosRecorrencia.listaRecorrencias.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA RECORRÊNCIA NESTA SELEÇÃO',
+        'Defina a regra de repetição de um serviço para gerar as contas.',
+      ),
+    );
     return;
   }
   for (const recorrencia of estadoRecorrencia.recorrencias) {

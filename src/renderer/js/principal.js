@@ -106,7 +106,6 @@ function mapearElementos() {
   elementos.missoesPainel = consultar('missoes-painel');
   elementos.filtrosMissao = consultar('filtros-missao');
   elementos.botaoNovaMissao = consultar('botao-nova-missao');
-  elementos.avisoMissoes = consultar('aviso-missoes');
   elementos.listaMissoes = consultar('lista-missoes');
   elementos.formularioMissao = consultar('formulario-missao');
   elementos.formularioMissaoTituloSecao = consultar('formulario-missao-titulo-secao');
@@ -135,7 +134,6 @@ function mapearElementos() {
   elementos.visaoFormularioProjeto = consultar('visao-formulario-projeto');
   elementos.filtrosProjeto = consultar('filtros-projeto');
   elementos.botaoNovoProjeto = consultar('botao-novo-projeto');
-  elementos.avisoProjetos = consultar('aviso-projetos');
   elementos.listaProjetos = consultar('lista-projetos');
   elementos.projetosPainel = consultar('projetos-painel');
   elementos.botaoVerProjetos = consultar('botao-ver-projetos');
@@ -458,12 +456,15 @@ function renderizarProjetos() {
   elementos.listaProjetos.replaceChildren();
 
   if (filtrados.length === 0) {
-    elementos.avisoProjetos.textContent = 'Nenhum projeto encontrado.';
-    elementos.avisoProjetos.classList.remove('oculto');
+    // Estado vazio: diz o que falta e indica o próximo passo.
+    elementos.listaProjetos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM PROJETO NESTA SELEÇÃO',
+        'Registre um projeto para acompanhar progresso, prazo e missões associadas.',
+      ),
+    );
     return;
   }
-
-  elementos.avisoProjetos.classList.add('oculto');
   for (const projeto of filtrados) {
     elementos.listaProjetos.append(criarItemProjeto(projeto));
   }
@@ -561,10 +562,12 @@ function exibirDetalhesProjeto(projeto) {
 
   elementos.projetoMissoes.replaceChildren();
   if (projeto.missoes.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma missão associada.';
-    elementos.projetoMissoes.append(vazio);
+    elementos.projetoMissoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO ASSOCIADA',
+        'Associe uma missão existente ao projeto para acompanhar o progresso.',
+      ),
+    );
   } else {
     for (const missao of projeto.missoes) {
       elementos.projetoMissoes.append(criarItemMissaoProjeto(missao));
@@ -641,10 +644,12 @@ async function abrirPickerMissao() {
   if (!resultado.ok) return;
   const disponiveis = (resultado.missoes || []).filter((m) => !m.projetoId);
   if (disponiveis.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma missão disponível (sem projeto).';
-    elementos.projetoPickerOpcoes.append(vazio);
+    elementos.projetoPickerOpcoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO DISPONÍVEL',
+        'Crie uma missão sem projeto para associá-la a este projeto.',
+      ),
+    );
   } else {
     for (const missao of disponiveis) {
       const opcao = document.createElement('button');
@@ -891,10 +896,12 @@ async function carregarFinancas() {
 function renderizarOrcamentos(orcamentos) {
   elementos.listaOrcamentos.replaceChildren();
   if (orcamentos.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhum orçamento definido.';
-    elementos.listaOrcamentos.append(vazio);
+    elementos.listaOrcamentos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM ORÇAMENTO DEFINIDO',
+        'Planeje um limite por categoria para acompanhar os gastos do período.',
+      ),
+    );
     return;
   }
   for (const orcamento of orcamentos) {
@@ -963,10 +970,12 @@ async function carregarTransacoes() {
 function renderizarTransacoes() {
   elementos.listaTransacoes.replaceChildren();
   if (transacoesCarregadas.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma movimentação registrada.';
-    elementos.listaTransacoes.append(vazio);
+    elementos.listaTransacoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MOVIMENTAÇÃO REGISTRADA',
+        'Registre uma receita ou despesa para acompanhar o saldo.',
+      ),
+    );
     return;
   }
   for (const transacao of transacoesCarregadas) {
@@ -1254,12 +1263,15 @@ function renderizarMissoes() {
   elementos.listaMissoes.replaceChildren();
 
   if (filtradas.length === 0) {
-    elementos.avisoMissoes.textContent = 'Nenhuma missão registrada.';
-    elementos.avisoMissoes.classList.remove('oculto');
+    // Estado vazio: diz o que falta e indica o próximo passo.
+    elementos.listaMissoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO NESTA SELEÇÃO',
+        'Registre uma missão para acompanhar o que precisa ser feito e o progresso.',
+      ),
+    );
     return;
   }
-
-  elementos.avisoMissoes.classList.add('oculto');
   for (const missao of filtradas) {
     elementos.listaMissoes.append(criarItemMissao(missao));
   }

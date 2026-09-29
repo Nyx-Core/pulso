@@ -224,10 +224,12 @@ async function carregarServicos() {
 function renderizarServicos() {
   elementosServico.listaServicos.replaceChildren();
   if (estadoServico.servicos.length === 0) {
-    const vazio = document.createElement("p");
-    vazio.className = "missoes-vazio";
-    vazio.textContent = "Nenhum serviço nesta seleção.";
-    elementosServico.listaServicos.append(vazio);
+    elementosServico.listaServicos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM SERVIÇO NESTA SELEÇÃO',
+        'Cadastre um serviço para acompanhar valor esperado e recorrência.',
+      ),
+    );
     return;
   }
   for (const servico of estadoServico.servicos) {

@@ -403,26 +403,10 @@ form .obrigatorio {
   letter-spacing: 0.04em;
 }
 
-/* Estados vazios já existentes (`.missoes-vazio`, `.dash-vazio`): ganham a
-   moldura tracejada e o marcador da nova linguagem, sem perder o texto já
-   escrito por cada tela. */
-.missoes-vazio,
-.dash-vazio {
-  color: var(--pulso-cinza);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  line-height: 1.6;
-  text-align: center;
-  padding: var(--pulso-espaco-5) var(--pulso-espaco-3);
-  border: 1px dashed var(--pulso-cinza-escuro);
-  overflow-wrap: anywhere;
-}
-
-.missoes-vazio::before,
-.dash-vazio::before {
-  content: '◇ ';
-  color: var(--pulso-cinza-medio);
-}
+/* Os estados vazios das listas usam `.estado-vazio` (acima), criado por
+   `__pulsoUI.estadoVazio()` — o texto e a dica do próximo passo obrigatórios.
+   As regras antigas `.missoes-vazio` / `.dash-vazio` foram removidas na
+   Fase 16: eram ids de módulo ("missoes") estilizando um componente comum. */
 
 /* ── Diálogo de confirmação (Fase 16) ──────────────────────────────────
    Confirmação explícita para ações destrutivas. Substitui o padrão anterior,

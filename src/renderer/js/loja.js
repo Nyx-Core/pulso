@@ -304,10 +304,12 @@ async function carregarDesejos() {
 function renderizarDesejos() {
   elementosLoja.listaDesejos.replaceChildren();
   if (estado.desejos.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhum desejo nesta seleção.';
-    elementosLoja.listaDesejos.append(vazio);
+    elementosLoja.listaDesejos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM DESEJO NESTA SELEÇÃO',
+        'Adicione um item à lista para planejar preço, prioridade e compra.',
+      ),
+    );
     return;
   }
   for (const desejo of estado.desejos) {
@@ -598,10 +600,12 @@ async function carregarHistorico() {
 function renderizarHistorico(compras) {
   elementosLoja.listaCompras.replaceChildren();
   if (compras.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma compra registrada ainda.';
-    elementosLoja.listaCompras.append(vazio);
+    elementosLoja.listaCompras.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA COMPRA REGISTRADA',
+        'Registre a compra de um desejo para acompanhar o valor pago.',
+      ),
+    );
     return;
   }
   for (const compra of compras) {
