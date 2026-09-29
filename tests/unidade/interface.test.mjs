@@ -94,6 +94,21 @@ test('a regra .armed e a função armar() não sobreviveram à unificação', ()
   assert.doesNotMatch(ui, /function armar\(/, 'armar() deve ter sido removida');
 });
 
+test('nenhuma regra de estado vazio antigo sobreviveu no CSS', () => {
+  // `.missoes-vazio` e `.dash-vazio` foram substituídos por `.estado-vazio`.
+  // Restos delas passariam despercebidos justamente porque não quebram nada.
+  for (const cssArquivo of ['base', 'componentes', 'principal']) {
+    const fonte = readFileSync(join(dirRenderer, 'css', `${cssArquivo}.css`), 'utf-8');
+    for (const classe of ['missoes-vazio', 'dash-vazio']) {
+      assert.doesNotMatch(
+        fonte,
+        new RegExp(`^\\.${classe}\\b`, 'm'),
+        `css/${cssArquivo}.css ainda define .${classe} (substituída por .estado-vazio)`,
+      );
+    }
+  }
+});
+
 // ---- 3. Integridade entre HTML, CSS e JS ----
 
 test('todo id consultado pelo JS existe no HTML', () => {

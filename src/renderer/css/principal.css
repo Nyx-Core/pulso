@@ -1300,12 +1300,10 @@
   color: var(--pulso-perigo);
 }
 
-.dash-vazio {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--pulso-cinza);
-  font-style: normal;
-}
+/* Os estados vazios do dashboard usam `.estado-vazio`
+   (componentes.css), criado por `__pulsoUI.estadoVazio()`: título +
+   próximo passo, em vez do parágrafo solto `.dash-vazio` que existia
+   aqui e que a Fase 16 substituiu. */
 
 /* progresso (XP de projeto, orçamento): barra + texto */
 .dash-progressos {
