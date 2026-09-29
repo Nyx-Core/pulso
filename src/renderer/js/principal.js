@@ -56,10 +56,8 @@ let filtroFinancaAtual = 'todas';
 let categoriaFiltroFinanca = '';
 let transacaoAtualId = null;
 let modoEdicaoTransacao = false;
-let exclusaoTransacaoArmada = false;
 let orcamentoAtualId = null;
 let modoEdicaoOrcamento = false;
-let exclusaoOrcamentoArmada = false;
 let orcamentosCarregadosParaEdicao = [];
 
 function consultar(id) {
@@ -106,7 +104,6 @@ function mapearElementos() {
   elementos.missoesPainel = consultar('missoes-painel');
   elementos.filtrosMissao = consultar('filtros-missao');
   elementos.botaoNovaMissao = consultar('botao-nova-missao');
-  elementos.avisoMissoes = consultar('aviso-missoes');
   elementos.listaMissoes = consultar('lista-missoes');
   elementos.formularioMissao = consultar('formulario-missao');
   elementos.formularioMissaoTituloSecao = consultar('formulario-missao-titulo-secao');
@@ -122,6 +119,7 @@ function mapearElementos() {
   elementos.progressaoNivel = consultar('progressao-nivel');
   elementos.progressaoXpTexto = consultar('progressao-xp-texto');
   elementos.progressaoPreenchimento = consultar('progressao-preenchimento');
+  elementos.progressaoBarra = consultar('progressao-barra');
   elementos.progressaoProximo = consultar('progressao-proximo');
   elementos.progressaoPontos = consultar('progressao-pontos');
   elementos.atributosLista = consultar('atributos-lista');
@@ -134,7 +132,6 @@ function mapearElementos() {
   elementos.visaoFormularioProjeto = consultar('visao-formulario-projeto');
   elementos.filtrosProjeto = consultar('filtros-projeto');
   elementos.botaoNovoProjeto = consultar('botao-novo-projeto');
-  elementos.avisoProjetos = consultar('aviso-projetos');
   elementos.listaProjetos = consultar('lista-projetos');
   elementos.projetosPainel = consultar('projetos-painel');
   elementos.botaoVerProjetos = consultar('botao-ver-projetos');
@@ -169,6 +166,10 @@ function mapearElementos() {
   elementos.botaoCancelarProjeto = consultar('botao-cancelar-projeto');
   // Finanças (Fase 08)
   elementos.botaoVerFinancas = consultar('botao-ver-financas');
+  elementos.botaoVerLoja = consultar('botao-ver-loja');
+  elementos.botaoVerServicos = consultar('botao-ver-servicos-despesas');
+  elementos.botaoVerPagamento = consultar('botao-ver-pagamento');
+  elementos.botaoVerDashboard = consultar('botao-ver-dashboard');
   elementos.visaoFinancas = consultar('visao-financas');
   elementos.visaoFormularioTransacao = consultar('visao-formulario-transacao');
   elementos.visaoFormularioOrcamento = consultar('visao-formulario-orcamento');
@@ -332,6 +333,15 @@ function renderizarProgressao(progressao) {
   elementos.progressaoNivel.textContent = `NÍVEL ${progressao.nivel}`;
   elementos.progressaoXpTexto.textContent = `${progressao.xpNoNivel} / ${progressao.xpNecessario} XP`;
   elementos.progressaoPreenchimento.style.width = `${Math.round(progressao.progresso * 100)}%`;
+  // Semântica de acessibilidade: a barra visual é o preenchimento, mas o
+  // papel de progresso vive no contêiner — os valores vêm do domínio.
+  elementos.progressaoBarra.setAttribute('aria-valuemin', '0');
+  elementos.progressaoBarra.setAttribute('aria-valuemax', String(progressao.xpNecessario));
+  elementos.progressaoBarra.setAttribute('aria-valuenow', String(progressao.xpNoNivel));
+  elementos.progressaoBarra.setAttribute(
+    'aria-valuetext',
+    `${progressao.xpNoNivel} de ${progressao.xpNecessario} XP`,
+  );
   elementos.progressaoProximo.textContent = `Próximo nível: ${progressao.xpNecessario - progressao.xpNoNivel} XP`;
   elementos.progressaoPontos.textContent = `Pontos de atributo disponíveis: ${progressao.pontosDisponiveis}`;
   elementos.atributosLista.replaceChildren();
@@ -362,11 +372,11 @@ function criarLinhaAtributo(nome, progressao) {
 
 async function simularXp() {
   if (!jogadorAtual) return;
-  elementos.avisoProgressao.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoProgressao);
   try {
     const resultado = await window.pulso.progressao.adicionarXp(jogadorAtual.id, 50);
     if (!resultado.ok) {
-      elementos.avisoProgressao.textContent = resultado.mensagem ?? 'Não foi possível adicionar XP.';
+      __pulsoUI.avisar(elementos.avisoProgressao, resultado.mensagem ?? 'Não foi possível adicionar XP.', 'erro');
       return;
     }
     progressaoAtual = resultado.progressao;
@@ -375,24 +385,24 @@ async function simularXp() {
       exibirLevelUp(resultado.progressao);
     }
   } catch (erro) {
-    elementos.avisoProgressao.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoProgressao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao simular XP — ${erro.message}`, erro);
   }
 }
 
 async function aumentarAtributo(nome) {
   if (!jogadorAtual) return;
-  elementos.avisoProgressao.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoProgressao);
   try {
     const resultado = await window.pulso.progressao.aumentarAtributo(jogadorAtual.id, nome, 1);
     if (!resultado.ok) {
-      elementos.avisoProgressao.textContent = resultado.mensagem ?? 'Não foi possível aumentar o atributo.';
+      __pulsoUI.avisar(elementos.avisoProgressao, resultado.mensagem ?? 'Não foi possível aumentar o atributo.', 'erro');
       return;
     }
     progressaoAtual = resultado.progressao;
     renderizarProgressao(progressaoAtual);
   } catch (erro) {
-    elementos.avisoProgressao.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoProgressao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao aumentar atributo — ${erro.message}`, erro);
   }
 }
@@ -444,12 +454,15 @@ function renderizarProjetos() {
   elementos.listaProjetos.replaceChildren();
 
   if (filtrados.length === 0) {
-    elementos.avisoProjetos.textContent = 'Nenhum projeto encontrado.';
-    elementos.avisoProjetos.classList.remove('oculto');
+    // Estado vazio: diz o que falta e indica o próximo passo.
+    elementos.listaProjetos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM PROJETO NESTA SELEÇÃO',
+        'Registre um projeto para acompanhar progresso, prazo e missões associadas.',
+      ),
+    );
     return;
   }
-
-  elementos.avisoProjetos.classList.add('oculto');
   for (const projeto of filtrados) {
     elementos.listaProjetos.append(criarItemProjeto(projeto));
   }
@@ -547,10 +560,12 @@ function exibirDetalhesProjeto(projeto) {
 
   elementos.projetoMissoes.replaceChildren();
   if (projeto.missoes.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma missão associada.';
-    elementos.projetoMissoes.append(vazio);
+    elementos.projetoMissoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO ASSOCIADA',
+        'Associe uma missão existente ao projeto para acompanhar o progresso.',
+      ),
+    );
   } else {
     for (const missao of projeto.missoes) {
       elementos.projetoMissoes.append(criarItemMissaoProjeto(missao));
@@ -607,7 +622,7 @@ function exibirFormularioProjeto({ modo, projeto = null } = {}) {
   elementos.campoProjetoDescricao.value = modoEdicaoProjeto ? (projeto.descricao || '') : '';
   elementos.campoProjetoPrioridade.value = modoEdicaoProjeto ? projeto.prioridade : 'normal';
   elementos.campoProjetoPrazo.value = modoEdicaoProjeto && projeto.prazo ? projeto.prazo.slice(0, 16) : '';
-  elementos.avisoFormularioProjeto.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioProjeto);
   exibirVisaoProjeto('visao-formulario-projeto');
 }
 
@@ -627,10 +642,12 @@ async function abrirPickerMissao() {
   if (!resultado.ok) return;
   const disponiveis = (resultado.missoes || []).filter((m) => !m.projetoId);
   if (disponiveis.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma missão disponível (sem projeto).';
-    elementos.projetoPickerOpcoes.append(vazio);
+    elementos.projetoPickerOpcoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO DISPONÍVEL',
+        'Crie uma missão sem projeto para associá-la a este projeto.',
+      ),
+    );
   } else {
     for (const missao of disponiveis) {
       const opcao = document.createElement('button');
@@ -648,17 +665,17 @@ function fecharPickerMissao() {
 }
 
 async function associarMissao(projetoId, missaoId) {
-  elementos.avisoProjeto.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoProjeto);
   try {
     const res = await window.pulso.projeto.associarMissao(projetoId, missaoId);
     if (!res.ok || !res.projeto) {
-      elementos.avisoProjeto.textContent = res.mensagem ?? 'Não foi possível associar a missão.';
+      __pulsoUI.avisar(elementos.avisoProjeto, res.mensagem ?? 'Não foi possível associar a missão.', 'erro');
       return;
     }
     fecharPickerMissao();
     exibirDetalhesProjeto(res.projeto);
   } catch (erro) {
-    elementos.avisoProjeto.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoProjeto, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao associar missão — ${erro.message}`, erro);
   }
 }
@@ -666,7 +683,7 @@ async function associarMissao(projetoId, missaoId) {
 /** Executa uma ação de estado do projeto. */
 async function acaoProjeto(acao) {
   if (!projetoAtualId) return;
-  elementos.avisoProjeto.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoProjeto);
   const chamadas = {
     iniciar: () => window.pulso.projeto.iniciar(projetoAtualId),
     concluir: () => window.pulso.projeto.concluir(projetoAtualId),
@@ -676,13 +693,13 @@ async function acaoProjeto(acao) {
   try {
     const resultado = await chamadas[acao]();
     if (!resultado.ok) {
-      elementos.avisoProjeto.textContent = resultado.mensagem ?? 'Operação não permitida.';
+      __pulsoUI.avisar(elementos.avisoProjeto, resultado.mensagem ?? 'Operação não permitida.', 'erro');
       return;
     }
     exibirDetalhesProjeto(resultado.projeto);
     await carregarProjetos();
   } catch (erro) {
-    elementos.avisoProjeto.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoProjeto, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha em ação de projeto — ${erro.message}`, erro);
   }
 }
@@ -695,20 +712,20 @@ async function salvarProjeto() {
     prioridade: elementos.campoProjetoPrioridade.value,
     prazo: converterPrazoLocal(elementos.campoProjetoPrazo.value),
   };
-  elementos.avisoFormularioProjeto.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioProjeto);
   try {
     const resultado = modoEdicaoProjeto
       ? await window.pulso.projeto.atualizar({ id: projetoAtualId, ...dados })
       : await window.pulso.projeto.criar({ jogadorId: jogadorAtual.id, ...dados });
     if (!resultado.ok) {
-      elementos.avisoFormularioProjeto.textContent = resultado.mensagem ?? 'Não foi possível salvar o projeto.';
+      __pulsoUI.avisar(elementos.avisoFormularioProjeto, resultado.mensagem ?? 'Não foi possível salvar o projeto.', 'erro');
       return;
     }
     projetoAtualId = resultado.projeto.id;
     await carregarProjetos();
     exibirDetalhesProjeto(resultado.projeto);
   } catch (erro) {
-    elementos.avisoFormularioProjeto.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioProjeto, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao salvar projeto — ${erro.message}`, erro);
   }
 }
@@ -803,6 +820,11 @@ function irParaFinancas() {
 
 /** Volta ao painel principal. */
 function voltarAoPainelFinancas() {
+  // Fase 15: o painel principal é o DASHBOARD (o boot fica acessível por lá).
+  if (typeof window.__irParaDashboard === 'function') {
+    window.__irParaDashboard();
+    return;
+  }
   exibirVisao('visao-boot');
 }
 
@@ -841,13 +863,13 @@ function preencherFiltroCategoria() {
 /** Carrega resumo + orçamentos + histórico do jogador. */
 async function carregarFinancas() {
   if (!jogadorAtual) return;
-  elementos.avisoFinancas.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFinancas);
   try {
     const ponte = ponteFinanca();
     const limites = limitesDoMesCorrente();
     const resumo = await ponte.resumo(jogadorAtual.id, limites);
     if (!resumo.ok) {
-      elementos.avisoFinancas.textContent = resumo.mensagem ?? 'Não foi possível carregar as finanças.';
+      __pulsoUI.avisar(elementos.avisoFinancas, resumo.mensagem ?? 'Não foi possível carregar as finanças.', 'erro');
       return;
     }
     financaConfig = resumo.config;
@@ -863,7 +885,7 @@ async function carregarFinancas() {
     preencherFiltroCategoria();
     await carregarTransacoes();
   } catch (erro) {
-    elementos.avisoFinancas.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFinancas, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao carregar finanças — ${erro.message}`, erro);
   }
 }
@@ -872,10 +894,12 @@ async function carregarFinancas() {
 function renderizarOrcamentos(orcamentos) {
   elementos.listaOrcamentos.replaceChildren();
   if (orcamentos.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhum orçamento definido.';
-    elementos.listaOrcamentos.append(vazio);
+    elementos.listaOrcamentos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM ORÇAMENTO DEFINIDO',
+        'Planeje um limite por categoria para acompanhar os gastos do período.',
+      ),
+    );
     return;
   }
   for (const orcamento of orcamentos) {
@@ -930,7 +954,7 @@ async function carregarTransacoes() {
       categoria: categoriaFiltroFinanca || null,
     });
     if (!resultado.ok) {
-      elementos.avisoFinancas.textContent = resultado.mensagem ?? 'Não foi possível carregar o histórico.';
+      __pulsoUI.avisar(elementos.avisoFinancas, resultado.mensagem ?? 'Não foi possível carregar o histórico.', 'erro');
       return;
     }
     transacoesCarregadas = resultado.transacoes ?? [];
@@ -944,10 +968,12 @@ async function carregarTransacoes() {
 function renderizarTransacoes() {
   elementos.listaTransacoes.replaceChildren();
   if (transacoesCarregadas.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma movimentação registrada.';
-    elementos.listaTransacoes.append(vazio);
+    elementos.listaTransacoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MOVIMENTAÇÃO REGISTRADA',
+        'Registre uma receita ou despesa para acompanhar o saldo.',
+      ),
+    );
     return;
   }
   for (const transacao of transacoesCarregadas) {
@@ -996,7 +1022,6 @@ function aplicarFiltroTipoFinanca(botao) {
 function exibirFormularioTransacao(transacao = null) {
   modoEdicaoTransacao = !!transacao;
   transacaoAtualId = transacao?.id ?? null;
-  exclusaoTransacaoArmada = false;
   elementos.formularioTransacaoTituloSecao.textContent = modoEdicaoTransacao ? 'EDITAR TRANSAÇÃO' : 'NOVA TRANSAÇÃO';
   elementos.formularioTransacaoTitulo.textContent = modoEdicaoTransacao ? 'MOVER DINHEIRO' : 'REGISTRAR MOVIMENTAÇÃO';
   elementos.campoTransacaoTipo.value = modoEdicaoTransacao ? transacao.tipo : 'receita';
@@ -1012,7 +1037,7 @@ function exibirFormularioTransacao(transacao = null) {
   elementos.campoTransacaoData.value = modoEdicaoTransacao ? transacao.ocorridaEm.slice(0, 10) : dataHojeIso();
   elementos.botaoExcluirTransacao.classList.toggle('oculto', !modoEdicaoTransacao);
   elementos.botaoExcluirTransacao.textContent = 'EXCLUIR';
-  elementos.avisoFormularioTransacao.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioTransacao);
   exibirVisaoFinanca('visao-formulario-transacao');
 }
 
@@ -1023,14 +1048,14 @@ function trocarTipoTransacao() {
 
 /** Salva (cria ou edita) a transação; o núcleo valida e recalcula o saldo. */
 async function salvarTransacao() {
-  elementos.avisoFormularioTransacao.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioTransacao);
   const centavos = lerCentavos(elementos.campoTransacaoValor.value);
   if (centavos === null || centavos <= 0) {
-    elementos.avisoFormularioTransacao.textContent = 'Informe um valor maior que zero (ex.: 1.250,75).';
+    __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Informe um valor maior que zero (ex.: 1.250,75).', 'erro');
     return;
   }
   if (!elementos.campoTransacaoData.value) {
-    elementos.avisoFormularioTransacao.textContent = 'Informe a data da movimentação.';
+    __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Informe a data da movimentação.', 'erro');
     return;
   }
   const dados = {
@@ -1045,14 +1070,14 @@ async function salvarTransacao() {
       ? await ponteFinanca().atualizarTransacao({ id: transacaoAtualId, ...dados })
       : await ponteFinanca().criarTransacao({ jogadorId: jogadorAtual.id, ...dados });
     if (!resultado.ok) {
-      elementos.avisoFormularioTransacao.textContent = resultado.mensagem ?? 'Não foi possível salvar a transação.';
+      __pulsoUI.avisar(elementos.avisoFormularioTransacao, resultado.mensagem ?? 'Não foi possível salvar a transação.', 'erro');
       return;
     }
     transacaoAtualId = resultado.transacao?.id ?? transacaoAtualId;
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    elementos.avisoFormularioTransacao.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao salvar transação — ${erro.message}`, erro);
   }
 }
@@ -1063,45 +1088,37 @@ function abrirEdicaoTransacao(id) {
   if (atual) exibirFormularioTransacao(atual);
 }
 
-/** Exclusão controlada: primeiro clique arma, segundo confirma. */
+/** Exclusão de transação: confirmação explícita, como nas demais ações destrutivas. */
 async function excluirTransacao() {
   if (!transacaoAtualId) return;
-  elementos.avisoFormularioTransacao.textContent = '';
-  if (!exclusaoTransacaoArmada) {
-    exclusaoTransacaoArmada = true;
-    elementos.botaoExcluirTransacao.textContent = 'CONFIRMAR EXCLUSÃO';
-    elementos.avisoFormularioTransacao.textContent =
-      'Excluir esta transação? Ela deixará de participar do saldo. Clique novamente para confirmar.';
-    return;
-  }
+  const atual = transacoesCarregadas.find((t) => t.id === transacaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR TRANSAÇÃO',
+    texto: 'A movimentação deixa de existir e o saldo é recalculado sem ela.',
+    alvo: atual ? `${atual.descricao || 'Sem descrição'} · ${formatarDataSimples(atual.ocorridaEm)}` : '',
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteFinanca().excluirTransacao(transacaoAtualId);
     if (!resultado.ok) {
-      armarExclusaoTransacao(false);
-      elementos.avisoFormularioTransacao.textContent = resultado.mensagem ?? 'Não foi possível excluir.';
+      __pulsoUI.avisar(elementos.avisoFormularioTransacao, resultado.mensagem ?? 'Não foi possível excluir.', 'erro');
       return;
     }
     transacaoAtualId = null;
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    armarExclusaoTransacao(false);
-    elementos.avisoFormularioTransacao.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioTransacao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao excluir transação — ${erro.message}`, erro);
   }
-}
-
-/** Liga/desliga o estado armado do botão de exclusão de transação. */
-function armarExclusaoTransacao(armado) {
-  exclusaoTransacaoArmada = armado;
-  elementos.botaoExcluirTransacao.textContent = armado ? 'CONFIRMAR EXCLUSÃO' : 'EXCLUIR';
 }
 
 /** Exibe o formulário de orçamento (criação ou edição). */
 function exibirFormularioOrcamento(orcamento = null) {
   modoEdicaoOrcamento = !!orcamento;
   orcamentoAtualId = orcamento?.id ?? null;
-  exclusaoOrcamentoArmada = false;
   elementos.formularioOrcamentoTituloSecao.textContent = modoEdicaoOrcamento ? 'EDITAR ORÇAMENTO' : 'NOVO ORÇAMENTO';
   elementos.formularioOrcamentoTitulo.textContent = modoEdicaoOrcamento ? 'REPLANEJAR GASTOS' : 'PLANEJAR GASTOS';
   preencherCategorias(
@@ -1117,7 +1134,7 @@ function exibirFormularioOrcamento(orcamento = null) {
   elementos.campoOrcamentoFim.value = modoEdicaoOrcamento ? orcamento.fim.slice(0, 10) : '';
   elementos.botaoExcluirOrcamento.classList.toggle('oculto', !modoEdicaoOrcamento);
   elementos.botaoExcluirOrcamento.textContent = 'EXCLUIR';
-  elementos.avisoFormularioOrcamento.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioOrcamento);
   exibirVisaoFinanca('visao-formulario-orcamento');
 }
 
@@ -1140,20 +1157,20 @@ function editarOrcamento(id) {
 
 /** Salva (cria ou edita) o orçamento; o núcleo valida categoria e período. */
 async function salvarOrcamento() {
-  elementos.avisoFormularioOrcamento.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioOrcamento);
   const centavos = lerCentavos(elementos.campoOrcamentoValor.value);
   if (centavos === null || centavos <= 0) {
-    elementos.avisoFormularioOrcamento.textContent = 'Informe um limite maior que zero (ex.: 600,00).';
+    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Informe um limite maior que zero (ex.: 600,00).', 'erro');
     return;
   }
   const inicio = elementos.campoOrcamentoInicio.value;
   const fim = elementos.campoOrcamentoFim.value;
   if (!inicio || !fim) {
-    elementos.avisoFormularioOrcamento.textContent = 'Informe o período do orçamento (início e fim).';
+    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Informe o período do orçamento (início e fim).', 'erro');
     return;
   }
   if (fim < inicio) {
-    elementos.avisoFormularioOrcamento.textContent = 'O fim do período deve ser igual ou posterior ao início.';
+    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'O fim do período deve ser igual ou posterior ao início.', 'erro');
     return;
   }
   const dados = {
@@ -1168,50 +1185,43 @@ async function salvarOrcamento() {
       ? await ponteFinanca().atualizarOrcamento({ id: orcamentoAtualId, ...dados })
       : await ponteFinanca().criarOrcamento({ jogadorId: jogadorAtual.id, ...dados });
     if (!resultado.ok) {
-      elementos.avisoFormularioOrcamento.textContent = resultado.mensagem ?? 'Não foi possível salvar o orçamento.';
+      __pulsoUI.avisar(elementos.avisoFormularioOrcamento, resultado.mensagem ?? 'Não foi possível salvar o orçamento.', 'erro');
       return;
     }
     orcamentoAtualId = resultado.orcamento?.id ?? orcamentoAtualId;
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    elementos.avisoFormularioOrcamento.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao salvar orçamento — ${erro.message}`, erro);
   }
 }
 
-/** Exclusão controlada de orçamento: armar → confirmar. */
+/** Exclusão de orçamento: confirmação explícita, como nas demais ações destrutivas. */
 async function excluirOrcamento() {
   if (!orcamentoAtualId) return;
-  elementos.avisoFormularioOrcamento.textContent = '';
-  if (!exclusaoOrcamentoArmada) {
-    exclusaoOrcamentoArmada = true;
-    elementos.botaoExcluirOrcamento.textContent = 'CONFIRMAR EXCLUSÃO';
-    elementos.avisoFormularioOrcamento.textContent =
-      'Excluir este orçamento? O planejamento deixará de ser acompanhado. Clique novamente para confirmar.';
-    return;
-  }
+  const orcamento = orcamentosCarregadosParaEdicao.find((o) => o.id === orcamentoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR ORÇAMENTO',
+    texto: 'O planejamento deixa de ser acompanhado. As movimentações já registradas permanecem.',
+    alvo: orcamento?.nome || rotuloCategoria(orcamento?.categoria),
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteFinanca().excluirOrcamento(orcamentoAtualId);
     if (!resultado.ok) {
-      armarExclusaoOrcamento(false);
-      elementos.avisoFormularioOrcamento.textContent = resultado.mensagem ?? 'Não foi possível excluir.';
+      __pulsoUI.avisar(elementos.avisoFormularioOrcamento, resultado.mensagem ?? 'Não foi possível excluir.', 'erro');
       return;
     }
     orcamentoAtualId = null;
     await carregarFinancas();
     exibirVisaoFinanca('visao-financas');
   } catch (erro) {
-    armarExclusaoOrcamento(false);
-    elementos.avisoFormularioOrcamento.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioOrcamento, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao excluir orçamento — ${erro.message}`, erro);
   }
-}
-
-/** Liga/desliga o estado armado do botão de exclusão de orçamento. */
-function armarExclusaoOrcamento(armado) {
-  exclusaoOrcamentoArmada = armado;
-  elementos.botaoExcluirOrcamento.textContent = armado ? 'CONFIRMAR EXCLUSÃO' : 'EXCLUIR';
 }
 
 // ── Missões (Fase 05) ─────────────────────────────────────────────────
@@ -1237,12 +1247,15 @@ function renderizarMissoes() {
   elementos.listaMissoes.replaceChildren();
 
   if (filtradas.length === 0) {
-    elementos.avisoMissoes.textContent = 'Nenhuma missão registrada.';
-    elementos.avisoMissoes.classList.remove('oculto');
+    // Estado vazio: diz o que falta e indica o próximo passo.
+    elementos.listaMissoes.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA MISSÃO NESTA SELEÇÃO',
+        'Registre uma missão para acompanhar o que precisa ser feito e o progresso.',
+      ),
+    );
     return;
   }
-
-  elementos.avisoMissoes.classList.add('oculto');
   for (const missao of filtradas) {
     elementos.listaMissoes.append(criarItemMissao(missao));
   }
@@ -1365,7 +1378,7 @@ function exibirFormularioMissao(missao = null) {
   elementos.campoMissaoDescricao.value = missao?.descricao || '';
   elementos.campoMissaoPrioridade.value = missao?.prioridade || 'normal';
   elementos.campoMissaoPrazo.value = missao?.prazo ? missao.prazo.slice(0, 16) : '';
-  elementos.avisoFormularioMissao.textContent = '';
+  __pulsoUI.limparAviso(elementos.avisoFormularioMissao);
   exibirVisaoMissao('visao-formulario-missao');
 }
 
@@ -1384,13 +1397,13 @@ async function salvarMissao(evento) {
       ? await window.pulso.missao.atualizar({ id: missaoAtualId, ...dados })
       : await window.pulso.missao.criar(dados);
     if (!resultado.ok) {
-      elementos.avisoFormularioMissao.textContent = resultado.mensagem ?? 'Não foi possível salvar a missão.';
+      __pulsoUI.avisar(elementos.avisoFormularioMissao, resultado.mensagem ?? 'Não foi possível salvar a missão.', 'erro');
       return;
     }
     await carregarMissoes();
     exibirVisaoMissao('visao-missoes');
   } catch (erro) {
-    elementos.avisoFormularioMissao.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementos.avisoFormularioMissao, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao salvar missão — ${erro.message}`, erro);
   }
 }
@@ -1415,9 +1428,18 @@ async function concluirMissao() {
   }
 }
 
-/** Cancela uma missão via IPC. */
+/** Cancela uma missão via IPC — estado terminal, pede confirmação. */
 async function cancelarMissao() {
   if (!jogadorAtual || !missaoAtualId) return;
+  const missao = missoesCarregadas.find((m) => m.id === missaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'CANCELAR MISSÃO',
+    texto: 'CANCELADA é um estado terminal: a missão não pode voltar a ser iniciada ou concluída depois.',
+    alvo: missao?.titulo ?? '',
+    rotuloConfirmar: 'CANCELAR',
+  });
+  if (!confirmado) return;
+
   const resultado = await window.pulso.missao.cancelar(missaoAtualId);
   if (resultado.ok) {
     await carregarMissoes();
@@ -1425,9 +1447,18 @@ async function cancelarMissao() {
   }
 }
 
-/** Exclui uma missão via IPC. */
+/** Exclui uma missão via IPC — ação irreversível, pede confirmação. */
 async function excluirMissao() {
   if (!jogadorAtual || !missaoAtualId) return;
+  const missao = missoesCarregadas.find((m) => m.id === missaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR MISSÃO',
+    texto: 'A missão é removida definitivamente do sistema, junto com o histórico de estado, prazo e recompensas.',
+    alvo: missao?.titulo ?? '',
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   const resultado = await window.pulso.missao.excluir(missaoAtualId);
   if (resultado.ok) {
     missaoAtualId = null;
@@ -1520,6 +1551,58 @@ function exibirVisao(nomeVisao) {
     elementos.visaoFormularioTransacao.classList.add('oculto');
     elementos.visaoFormularioOrcamento.classList.add('oculto');
   }
+
+  // Loja / Lista de Desejos (Fase 09) — telas próprias gerenciadas por loja.js
+  const emLoja = nomeVisao === 'visao-loja'
+    || nomeVisao === 'visao-loja-historico'
+    || nomeVisao === 'visao-loja-detalhe'
+    || nomeVisao === 'visao-formulario-desejo'
+    || nomeVisao === 'visao-formulario-compra';
+  if (!emLoja) {
+    for (const id of ['visao-loja', 'visao-loja-historico', 'visao-loja-detalhe',
+      'visao-formulario-desejo', 'visao-formulario-compra']) {
+      const visao = document.getElementById(id);
+      if (visao) visao.classList.add('oculto');
+    }
+  }
+
+  // Serviços (Fase 10.1) — telas próprias gerenciadas por servicos.js
+  const emServicos = nomeVisao === 'visao-servicos'
+    || nomeVisao === 'visao-servico-detalhe'
+    || nomeVisao === 'visao-formulario-servico';
+  if (!emServicos) {
+    for (const id of ['visao-servicos', 'visao-servico-detalhe', 'visao-formulario-servico']) {
+      const visao = document.getElementById(id);
+      if (visao) visao.classList.add('oculto');
+    }
+  }
+
+  // Contas / Despesas (Fase 10.2) — telas próprias gerenciadas por contas.js
+  const emContas = nomeVisao === 'visao-contas'
+    || nomeVisao === 'visao-conta-detalhe'
+    || nomeVisao === 'visao-formulario-conta'
+    || nomeVisao === 'visao-formulario-pagamento-conta';
+  if (!emContas) {
+    for (const id of ['visao-contas', 'visao-conta-detalhe', 'visao-formulario-conta',
+      'visao-formulario-pagamento-conta']) {
+      const visao = document.getElementById(id);
+      if (visao) visao.classList.add('oculto');
+    }
+  }
+
+  // Visão consolidada da FASE 10 (hub "SERVIÇOS E DESPESAS").
+  if (nomeVisao !== 'visao-servicos-despesas') {
+    const hub = document.getElementById('visao-servicos-despesas');
+    if (hub) hub.classList.add('oculto');
+  }
+
+  // Dashboard (Fase 15) — escondido em qualquer troca por exibirVisao;
+  // a ENTRADA no dashboard é feita por dashboard.js (__irParaDashboard),
+  // que também cobre as demais visões.
+  if (nomeVisao !== 'visao-dashboard') {
+    const dash = document.getElementById('visao-dashboard');
+    if (dash) dash.classList.add('oculto');
+  }
 }
 
 /** Vai para a lista de projetos (esconde o painel principal). */
@@ -1534,13 +1617,44 @@ function irParaMissoes() {
   carregarMissoes();
 }
 
-/** Volta ao painel principal (boot com status + progressão). */
+/** Volta ao painel principal (Dashboard — Fase 15; boot acessível por lá). */
 function voltarAoPainel() {
+  if (typeof window.__irParaDashboard === 'function') {
+    window.__irParaDashboard();
+    return;
+  }
   exibirVisao('visao-boot');
 }
 
-function setAviso(texto) {
-  elementos.avisoConfiguracao.textContent = texto;
+// ── Pontes globais para o DASHBOARD (Fase 15) ────────────────────────────
+// O dashboard (dashboard.js) chama os fluxos EXISTENTES via window.* —
+// nenhum formulário ou navegação é reimplementado lá. As atribuições usam
+// guardas para não sobrescrever nada já exposto por outros módulos.
+if (typeof window.__irParaMissoes !== 'function') {
+  window.__irParaMissoes = () => { exibirVisaoMissao('visao-missoes'); carregarMissoes(); };
+}
+if (typeof window.__irParaProjetos !== 'function') {
+  window.__irParaProjetos = () => { exibirVisaoProjeto('visao-projetos'); carregarProjetos(); };
+}
+if (typeof window.__irParaFinancas !== 'function') {
+  window.__irParaFinancas = irParaFinancas;
+}
+if (typeof window.__abrirNovaMissao !== 'function') {
+  window.__abrirNovaMissao = () => exibirFormularioMissao();
+}
+if (typeof window.__abrirNovoProjeto !== 'function') {
+  window.__abrirNovoProjeto = () => exibirFormularioProjeto({ modo: 'criacao' });
+}
+if (typeof window.__abrirNovaTransacao !== 'function') {
+  window.__abrirNovaTransacao = async () => {
+    irParaFinancas(); // carrega a configuração financeira das categorias
+    try { await carregarFinancas(); } catch { /* erros já tratados dentro */ }
+    exibirFormularioTransacao();
+  };
+}
+
+function setAviso(texto, tipo = 'erro') {
+  __pulsoUI.avisar(elementos.avisoConfiguracao, texto, tipo);
 }
 
 /** Mostra o formulário no modo pedido (criação no 1º acesso; edição depois). */
@@ -1579,6 +1693,9 @@ function executarBoot() {
   elementos.botaoVerMissoes.disabled = true;
   elementos.botaoVerProjetos.disabled = true;
   elementos.botaoVerFinancas.disabled = true;
+  elementos.botaoVerLoja.disabled = true;
+  elementos.botaoVerServicos.disabled = true;
+  elementos.botaoVerDashboard.disabled = true;
   definirEstado('INICIANDO…');
   const linhas = linhasDoBoot();
   montarLinhasBoot(linhas, false);
@@ -1592,11 +1709,22 @@ function executarBoot() {
     elementos.botaoVerMissoes.disabled = false;
     elementos.botaoVerProjetos.disabled = false;
     elementos.botaoVerFinancas.disabled = false;
+    elementos.botaoVerLoja.disabled = false;
+    elementos.botaoVerServicos.disabled = false;
+    elementos.botaoVerDashboard.disabled = false;
     elementos.mensagem.textContent = 'Operador identificado. Aguardando módulos…';
     carregarStatus();
     carregarProgressao();
     carregarMissoes();
     carregarProjetos();
+    // Fase 15: o DASHBOARD é a tela principal do PULSO — entra após o boot
+    // concluir (com uma pausa curta para o SISTEMA ONLINE ser visível).
+    // O painel de boot continua acessível pelo atalho "PAINEL DE BOOT".
+    if (typeof window.__irParaDashboard === 'function') {
+      setTimeout(() => {
+        if (typeof window.__irParaDashboard === 'function') window.__irParaDashboard();
+      }, 600);
+    }
   }, atrasoConclusao);
 }
 
@@ -1619,6 +1747,7 @@ async function submeterIdentidade(evento) {
       return;
     }
     jogadorAtual = resultado.jogador;
+    window.__pulsoJogadorAtual = jogadorAtual;
     executarBoot(); // reexecuta o boot exibindo a identidade confirmada
   } catch (erro) {
     setAviso('Falha de comunicação com o núcleo.');
@@ -1637,6 +1766,7 @@ async function iniciar() {
     const estadoJogador = await carregarEstadoJogador();
     if (estadoJogador.existe && estadoJogador.jogador) {
       jogadorAtual = estadoJogador.jogador;
+      window.__pulsoJogadorAtual = jogadorAtual;
       executarBoot();
     } else {
       exibirConfiguracao({ modo: 'criacao' });
@@ -1742,6 +1872,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // Finanças (Fase 08)
   elementos.botaoVerFinancas.addEventListener('click', irParaFinancas);
+  // Loja / Lista de Desejos (Fase 09) — navegação delegada ao módulo loja.js
+  elementos.botaoVerLoja.addEventListener('click', () => {
+    if (typeof window.__irParaLoja === 'function') window.__irParaLoja();
+  });
+  elementos.botaoVerServicos.addEventListener('click', () => {
+    // Visão consolidada da FASE 10 (hub gerenciado por servicos-despesas.js)
+    if (typeof window.__irParaServicosDespesas === 'function') window.__irParaServicosDespesas();
+  });
+  // Dashboard (Fase 15) — navegação delegada ao módulo dashboard.js
+  elementos.botaoVerDashboard.addEventListener('click', () => {
+    if (typeof window.__irParaDashboard === 'function') window.__irParaDashboard();
+  });
   elementos.financasPainel.addEventListener('click', voltarAoPainelFinancas);
   elementos.filtrosFinanca.addEventListener('click', (evento) => {
     const botao = evento.target.closest('[data-filtro]');

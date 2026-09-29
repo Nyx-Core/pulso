@@ -55,6 +55,42 @@ const CANAL_FINANCA_CRIAR_ORCAMENTO = 'financa:criar-orcamento'; // igual a cana
 const CANAL_FINANCA_ATUALIZAR_ORCAMENTO = 'financa:atualizar-orcamento'; // igual a canais.cjs → FINANCA_ATUALIZAR_ORCAMENTO
 const CANAL_FINANCA_EXCLUIR_ORCAMENTO = 'financa:excluir-orcamento'; // igual a canais.cjs → FINANCA_EXCLUIR_ORCAMENTO
 const CANAL_FINANCA_SITUACAO_ORCAMENTO = 'financa:situacao-orcamento'; // igual a canais.cjs → FINANCA_SITUACAO_ORCAMENTO
+const CANAL_DASHBOARD_VISAO = 'dashboard:visao'; // igual a canais.cjs → DASHBOARD_VISAO
+const CANAL_LOJA_LISTAR = 'loja:listar'; // igual a canais.cjs → LOJA_LISTAR
+const CANAL_LOJA_OBTER = 'loja:obter'; // igual a canais.cjs → LOJA_OBTER
+const CANAL_LOJA_CRIAR = 'loja:criar'; // igual a canais.cjs → LOJA_CRIAR
+const CANAL_LOJA_ATUALIZAR = 'loja:atualizar'; // igual a canais.cjs → LOJA_ATUALIZAR
+const CANAL_LOJA_ANALISAR = 'loja:analisar'; // igual a canais.cjs → LOJA_ANALISAR
+const CANAL_LOJA_PLANEJAR = 'loja:planejar'; // igual a canais.cjs → LOJA_PLANEJAR
+const CANAL_LOJA_COMPRAR = 'loja:comprar'; // igual a canais.cjs → LOJA_COMPRAR
+const CANAL_LOJA_CANCELAR = 'loja:cancelar'; // igual a canais.cjs → LOJA_CANCELAR
+const CANAL_LOJA_HISTORICO = 'loja:historico'; // igual a canais.cjs → LOJA_HISTORICO
+const CANAL_LOJA_RESUMO = 'loja:resumo'; // igual a canais.cjs → LOJA_RESUMO
+const CANAL_LOJA_CONFIG = 'loja:config'; // igual a canais.cjs → LOJA_CONFIG
+const CANAL_SERVICO_LISTAR = 'servico:listar'; // igual a canais.cjs → SERVICO_LISTAR
+const CANAL_SERVICO_OBTER = 'servico:obter'; // igual a canais.cjs → SERVICO_OBTER
+const CANAL_SERVICO_CRIAR = 'servico:criar'; // igual a canais.cjs → SERVICO_CRIAR
+const CANAL_SERVICO_ATUALIZAR = 'servico:atualizar'; // igual a canais.cjs → SERVICO_ATUALIZAR
+const CANAL_SERVICO_ATIVAR = 'servico:ativar'; // igual a canais.cjs → SERVICO_ATIVAR
+const CANAL_SERVICO_DESATIVAR = 'servico:desativar'; // igual a canais.cjs → SERVICO_DESATIVAR
+const CANAL_SERVICO_ARQUIVAR = 'servico:arquivar'; // igual a canais.cjs → SERVICO_ARQUIVAR
+const CANAL_SERVICO_CONFIG = 'servico:config'; // igual a canais.cjs → SERVICO_CONFIG
+const CANAL_CONTA_LISTAR = 'conta:listar'; // igual a canais.cjs → CONTA_LISTAR
+const CANAL_CONTA_OBTER = 'conta:obter'; // igual a canais.cjs → CONTA_OBTER
+const CANAL_CONTA_CRIAR = 'conta:criar'; // igual a canais.cjs → CONTA_CRIAR
+const CANAL_CONTA_ATUALIZAR = 'conta:atualizar'; // igual a canais.cjs → CONTA_ATUALIZAR
+const CANAL_CONTA_CANCELAR = 'conta:cancelar'; // igual a canais.cjs → CONTA_CANCELAR
+const CANAL_CONTA_CONFIG = 'conta:config'; // igual a canais.cjs → CONTA_CONFIG
+const CANAL_CONTA_PAGAR = 'conta:pagar'; // igual a canais.cjs → CONTA_PAGAR
+const CANAL_RECURRENCIA_LISTAR = 'recorrencia:listar'; // igual a canais.cjs → RECURRENCIA_LISTAR
+const CANAL_RECURRENCIA_OBTER = 'recorrencia:obter'; // igual a canais.cjs → RECURRENCIA_OBTER
+const CANAL_RECURRENCIA_CRIAR = 'recorrencia:criar'; // igual a canais.cjs → RECURRENCIA_CRIAR
+const CANAL_RECURRENCIA_ATUALIZAR = 'recorrencia:atualizar'; // igual a canais.cjs → RECURRENCIA_ATUALIZAR
+const CANAL_RECURRENCIA_ATIVAR = 'recorrencia:ativar'; // igual a canais.cjs → RECURRENCIA_ATIVAR
+const CANAL_RECURRENCIA_DESATIVAR = 'recorrencia:desativar'; // igual a canais.cjs → RECURRENCIA_DESATIVAR
+const CANAL_RECURRENCIA_ARQUIVAR = 'recorrencia:arquivar'; // igual a canais.cjs → RECURRENCIA_ARQUIVAR
+const CANAL_RECURRENCIA_GERAR = 'recorrencia:gerar'; // igual a canais.cjs → RECURRENCIA_GERAR
+const CANAL_RECURRENCIA_CONFIG = 'recorrencia:config'; // igual a canais.cjs → RECURRENCIA_CONFIG
 
 const { contextBridge, ipcRenderer } = require('electron');
 
@@ -220,6 +256,94 @@ contextBridge.exposeInMainWorld(
       atualizarOrcamento: (dados) => ipcRenderer.invoke(CANAL_FINANCA_ATUALIZAR_ORCAMENTO, dados),
       excluirOrcamento: (id) => ipcRenderer.invoke(CANAL_FINANCA_EXCLUIR_ORCAMENTO, { id }),
       situacaoOrcamento: (id) => ipcRenderer.invoke(CANAL_FINANCA_SITUACAO_ORCAMENTO, { id }),
+    }),
+
+    /**
+     * Operacoes da Loja / Lista de Desejos (Fase 09).
+     * Valores em CENTAVOS; a compra gera despesa via financas (Fase 08).
+     */
+    loja: Object.freeze({
+      listar: (jogadorId, filtros = {}) =>
+        ipcRenderer.invoke(CANAL_LOJA_LISTAR, { jogadorId, ...filtros }),
+      obter: (id) => ipcRenderer.invoke(CANAL_LOJA_OBTER, { id }),
+      criar: (dados) => ipcRenderer.invoke(CANAL_LOJA_CRIAR, dados),
+      atualizar: (dados) => ipcRenderer.invoke(CANAL_LOJA_ATUALIZAR, dados),
+      analisar: (id) => ipcRenderer.invoke(CANAL_LOJA_ANALISAR, { id }),
+      planejar: (id) => ipcRenderer.invoke(CANAL_LOJA_PLANEJAR, { id }),
+      comprar: (id, compra) => ipcRenderer.invoke(CANAL_LOJA_COMPRAR, { id, ...compra }),
+      cancelar: (id) => ipcRenderer.invoke(CANAL_LOJA_CANCELAR, { id }),
+      historico: (jogadorId) => ipcRenderer.invoke(CANAL_LOJA_HISTORICO, { jogadorId }),
+      resumo: (jogadorId) => ipcRenderer.invoke(CANAL_LOJA_RESUMO, { jogadorId }),
+      config: () => ipcRenderer.invoke(CANAL_LOJA_CONFIG),
+    }),
+
+    /**
+     * Operacoes de Servicos (Fase 10.1).
+     * Valores em CENTAVOS; o valor esperado e ESTIMATIVA — criar/editar/
+     * arquivar um servico NAO cria transacao e NAO altera o saldo.
+     */
+    servico: Object.freeze({
+      listar: (jogadorId, filtros = {}) =>
+        ipcRenderer.invoke(CANAL_SERVICO_LISTAR, { jogadorId, ...filtros }),
+      obter: (id) => ipcRenderer.invoke(CANAL_SERVICO_OBTER, { id }),
+      criar: (dados) => ipcRenderer.invoke(CANAL_SERVICO_CRIAR, dados),
+      atualizar: (dados) => ipcRenderer.invoke(CANAL_SERVICO_ATUALIZAR, dados),
+      ativar: (id) => ipcRenderer.invoke(CANAL_SERVICO_ATIVAR, { id }),
+      desativar: (id) => ipcRenderer.invoke(CANAL_SERVICO_DESATIVAR, { id }),
+      arquivar: (id) => ipcRenderer.invoke(CANAL_SERVICO_ARQUIVAR, { id }),
+      config: () => ipcRenderer.invoke(CANAL_SERVICO_CONFIG),
+    }),
+
+    /**
+     * Operacoes de Contas / Despesas (Fase 10.2).
+     * Valores em CENTAVOS. Uma conta e a OCORRENCIA de um servico:
+     * criar/editar/cancelar NAO cria transacao e NAO altera o saldo.
+     * `situacao` (pendente | vencida | cancelada) e DERIVADA do vencimento.
+     */
+    conta: Object.freeze({
+      listar: (jogadorId, filtros = {}) =>
+        ipcRenderer.invoke(CANAL_CONTA_LISTAR, { jogadorId, ...filtros }),
+      obter: (id) => ipcRenderer.invoke(CANAL_CONTA_OBTER, { id }),
+      criar: (dados) => ipcRenderer.invoke(CANAL_CONTA_CRIAR, dados),
+      atualizar: (dados) => ipcRenderer.invoke(CANAL_CONTA_ATUALIZAR, dados),
+      cancelar: (id) => ipcRenderer.invoke(CANAL_CONTA_CANCELAR, { id }),
+      pagar: (jogadorId, id, dados) =>
+        ipcRenderer.invoke(CANAL_CONTA_PAGAR, { jogadorId, id, ...dados }),
+      config: () => ipcRenderer.invoke(CANAL_CONTA_CONFIG),
+    }),
+
+    /**
+     * Operacoes de Recorrencias (Fase 10.3) e GERACAO DE OCORRENCIAS
+     * (Fase 10.4). A recorrencia e a REGRA DE REPETICAO de um servico:
+     * criar/editar/ativar/desativar/arquivar NAO gera conta, NAO cria
+     * transacao e NAO altera o saldo. `gerar` transforma a regra em contas
+     * PENDENTES num periodo (idempotente — a mesma ocorrencia nao duplica),
+     * mas NAO paga, NAO cria transacao e NAO altera saldo (Fase 10.5).
+     */
+    recorrencia: Object.freeze({
+      listar: (jogadorId, filtros = {}) =>
+        ipcRenderer.invoke(CANAL_RECURRENCIA_LISTAR, { jogadorId, ...filtros }),
+      obter: (id) => ipcRenderer.invoke(CANAL_RECURRENCIA_OBTER, { id }),
+      criar: (dados) => ipcRenderer.invoke(CANAL_RECURRENCIA_CRIAR, dados),
+      atualizar: (dados) => ipcRenderer.invoke(CANAL_RECURRENCIA_ATUALIZAR, dados),
+      ativar: (id) => ipcRenderer.invoke(CANAL_RECURRENCIA_ATIVAR, { id }),
+      desativar: (id) => ipcRenderer.invoke(CANAL_RECURRENCIA_DESATIVAR, { id }),
+      arquivar: (id) => ipcRenderer.invoke(CANAL_RECURRENCIA_ARQUIVAR, { id }),
+      gerar: (id, periodo = {}) =>
+        ipcRenderer.invoke(CANAL_RECURRENCIA_GERAR, { id, ...periodo }),
+      config: () => ipcRenderer.invoke(CANAL_RECURRENCIA_CONFIG),
+    }),
+
+    /**
+     * Operacoes do Dashboard (Fase 15). Somente LEITURA: a visao consolidada
+     * reutiliza os servicos existentes (jogador, status, progressao, missoes,
+     * projetos, financas, servicos e contas). Nao cria dados, nao altera
+     * regras e nao movimenta dinheiro. `anoMes` e a competencia `AAAA-MM`
+     * (omitida = mes atual); o saldo exibido e sempre o saldo ATUAL.
+     */
+    dashboard: Object.freeze({
+      visao: (periodo = {}) =>
+        ipcRenderer.invoke(CANAL_DASHBOARD_VISAO, { ...periodo }),
     }),
   }),
 );

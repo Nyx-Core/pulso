@@ -1,18 +1,54 @@
 /* PULSO — base visual (identidade: Cyberpunk / Netrunner / terminal)
-   Paleta definida em docs/identidade-visual.md — vermelho apenas como destaque. */
+   Paleta definida em docs/identidade-visual.md — vermelho apenas como destaque.
+
+   Escala única de tokens (Fase 16): toda a interface consome estes nomes.
+   Nenhuma cor literal espalhada pelos componentes. */
 
 :root {
+  /* Faz os controles nativos do Chromium (calendário de <input type="date">,
+     listas de <select>, barras de rolagem) herdarem o tema escuro em vez do
+     claro padrão do sistema. */
+  color-scheme: dark;
+
+  /* superfícies (do mais profundo ao mais elevado) */
   --pulso-preto: #0b0b0d;
   --pulso-superficie: #131318;
+  --pulso-superficie-alta: #1c1c23;
+
+  /* destaque — vermelho (ação primária, atenção, alerta) */
   --pulso-vermelho: #e5484d;
+  --pulso-vermelho-claro: #ff6b70; /* "atenção" intermediária: 6,7:1 sobre superfície */
   --pulso-vermelho-escuro: #7f1d1d;
-  --pulso-cinza: #8a8a93;
-  --pulso-cinza-escuro: #3a3a42;
+
+  /* estrutura — cinza */
+  --pulso-cinza: #8a8a93; /* texto secundário — 5,7:1 sobre preto */
+  --pulso-cinza-medio: #5f5f69; /* bordas com presença */
+  --pulso-cinza-escuro: #3a3a42; /* SOMENTE linhas/bordas: 1,7:1, nunca texto */
+
+  /* texto */
   --pulso-branco: #f2f2f5;
+
   /* semânticos: perigo = vermelho de alerta; sucesso = tom positivo (branco,
      respeitando a paleta sem verdes — receitas/estados bons usam branco) */
   --pulso-perigo: #e5484d;
   --pulso-sucesso: #f2f2f5;
+  --pulso-alerta: var(--pulso-vermelho-claro);
+
+  /* medidas — espaçamento e raios usados por todos os componentes */
+  --pulso-espaco-1: 4px;
+  --pulso-espaco-2: 8px;
+  --pulso-espaco-3: 12px;
+  --pulso-espaco-4: 16px;
+  --pulso-espaco-5: 24px;
+  --pulso-espaco-6: 32px;
+  --pulso-raio: 2px; /* cantos quase retos: linhas de terminal, não "app" */
+
+  /* alvo mínimo de toque/teclado (WCAG 2.5.8 — 24px) */
+  --pulso-alvo-minimo: 28px;
+
+  /* lado do botão só de ícone: quadrado, alinhado ao texto vizinho */
+  --pulso-alvo-icone: 32px;
+
   --pulso-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', ui-monospace,
     'DejaVu Sans Mono', Consolas, monospace;
 }
@@ -54,22 +90,90 @@ body::after {
   );
 }
 
+/* ── Tipografia base (Fase 16) ────────────────────────────────────────
+   O monoespaçado é a leitura padrão da identidade (terminal/HUD). O tamanho
+   mínimo é 12px e o interlinhamento nunca cai abaixo de 1,4 para preservar
+   a legibilidade em telas pequenas. */
+
+body {
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 ::selection {
   background: var(--pulso-vermelho-escuro);
   color: var(--pulso-branco);
 }
 
+/* Foco de teclado: anel duplo e visível em qualquer superfície.
+   Nunca removido — apenas `:focus-visible`, para não marcar o clique do mouse. */
 :focus-visible {
-  outline: 1px solid var(--pulso-vermelho);
+  outline: 2px solid var(--pulso-vermelho-claro);
   outline-offset: 2px;
+  border-radius: var(--pulso-raio);
 }
 
-/* respeito a preferências de acessibilidade de movimento */
+/* Elementos customizados (cartões clicáveis) mantêm o mesmo anel. */
+.missao-card:focus-visible,
+.missao-item:focus-visible,
+.orcamento-item:focus-visible {
+  outline: 2px solid var(--pulso-vermelho-claro);
+  outline-offset: 2px;
+  border-color: var(--pulso-vermelho-claro);
+}
+
+/* Números alinhados em colunas (saldo, XP, valores) — usado pelas telas
+   financeiras. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quebra segura de textos longos (nomes de missão, serviço, descrição). */
+.quebra-segura {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+/* ── Barras de rolagem (Fase 16) ───────────────────────────────────────
+   Sem estilo, o Chromium exibe barras claras sobre a interface escura. */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pulso-cinza-escuro) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pulso-cinza-escuro);
+  border: 2px solid var(--pulso-preto);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pulso-cinza-medio);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*respeito a preferências de acessibilidade de movimento */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation: none !important;
     transition: none !important;
+    scroll-behavior: auto !important;
   }
 }

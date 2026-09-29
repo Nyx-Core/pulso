@@ -30,12 +30,53 @@ import { RepositorioAtributos } from '../core/database/repositorios/atributos.js
 import { RepositorioCarteira } from '../core/database/repositorios/carteira.js';
 import { RepositorioTransacao } from '../core/database/repositorios/transacao.js';
 import { RepositorioOrcamento } from '../core/database/repositorios/orcamento.js';
+import { RepositorioDesejo } from '../core/database/repositorios/desejo.js';
+import { RepositorioServico } from '../core/database/repositorios/servico.js';
+import { RepositorioConta } from '../core/database/repositorios/conta.js';
+import { RepositorioRecorrencia } from '../core/database/repositorios/recorrencia.js';
 import { ServicoJogador } from '../core/aplicacao/servico-jogador.js';
 import { ServicoStatus } from '../core/aplicacao/servico-status.js';
 import { ServicoMissao } from '../core/aplicacao/servico-missao.js';
 import { ServicoProjeto } from '../core/aplicacao/servico-projeto.js';
 import { ServicoProgressao } from '../core/aplicacao/servico-progressao.js';
 import { ServicoFinanca } from '../core/aplicacao/servico-financa.js';
+import { ServicoLoja } from '../core/aplicacao/servico-loja.js';
+import { ServicoServicos } from '../core/aplicacao/servico-servicos.js';
+import { ServicoContas } from '../core/aplicacao/servico-contas.js';
+import { ServicoRecorrencias } from '../core/aplicacao/servico-recorrencias.js';
+import { ServicoGeracaoOcorrencias } from '../core/aplicacao/servico-geracao-ocorrencias.js';
+import { ServicoPagamentos } from '../core/aplicacao/servico-pagamentos.js';
+import { ServicoDashboard } from '../core/aplicacao/servico-dashboard.js';
+import {
+  CATEGORIAS_DESEJO,
+  PRIORIDADES_DESEJO_ORDEM,
+  PRIORIDADES_DESEJO_ROTULOS,
+  ESTADOS_DESEJO_ORDEM,
+  ESTADOS_DESEJO_ROTULOS,
+} from '../core/dominio/loja.js';
+import {
+  CATEGORIAS_SERVICO,
+  ESTADOS_SERVICO_ORDEM,
+  ESTADOS_SERVICO_ROTULOS,
+} from '../core/dominio/servico.js';
+import {
+  ESTADOS_CONTA_ORDEM,
+  ESTADOS_CONTA_ROTULOS,
+  FORMATO_REFERENCIA,
+  SITUACOES_CONTA_ORDEM,
+  SITUACOES_CONTA_ROTULOS,
+} from '../core/dominio/conta.js';
+import {
+  ESTADOS_RECORRENCIA_ORDEM,
+  ESTADOS_RECORRENCIA_ROTULOS,
+  FREQUENCIAS_RECORRENCIA,
+} from '../core/dominio/recorrencia.js';
+
+const CATEGORIAS_DESEJO_LOJA = CATEGORIAS_DESEJO;
+const PRIORIDADES_DESEJO_LOJA = PRIORIDADES_DESEJO_ORDEM;
+const ROTULOS_PRIORIDADES_LOJA = PRIORIDADES_DESEJO_ROTULOS;
+const ESTADOS_DESEJO_LOJA = ESTADOS_DESEJO_ORDEM;
+const ROTULOS_ESTADOS_LOJA = ESTADOS_DESEJO_ROTULOS;
 import { ErroValidacao, ErroConflito, ErroTransicao } from '../core/erros.js';
 import canais from './canais.cjs';
 
@@ -63,6 +104,13 @@ let servicoMissao = null;
 let servicoProjeto = null;
 let servicoProgressao = null;
 let servicoFinanca = null;
+let servicoLoja = null;
+let servicoServicos = null;
+let servicoContas = null;
+let servicoRecorrencias = null;
+let servicoGeracaoOcorrencias = null;
+let servicoPagamentos = null;
+let servicoDashboard = null;
 
 // ── Teste de fumaça ─────────────────────────────────────────────────────
 const resultadosFumaca = {
@@ -91,7 +139,11 @@ function encerrarFumaca(ok, motivo) {
 }
 
 function executarTesteFumaca(janela) {
-  prazoFumaca = setTimeout(() => encerrarFumaca(false, 'tempo esgotado (20 s)'), 20_000);
+  prazoFumaca = setTimeout(() => encerrarFumaca(false, 'tempo esgotado (30 s)'), 30_000);
+  // O fluxo roda UMA vez: a validação do dashboard (Fase 15) recarrega o
+  // renderer, o que dispara `did-finish-load` novamente — sem esta guarda o
+  // handler reentraria e duplicaria/reiniciaria o teste.
+  let fluxoExecutado = false;
 
   janela.webContents.on('console-message', (...argumentos) => {
     const { nivel, mensagem } = extrairConsole(...argumentos);
@@ -105,6 +157,8 @@ function executarTesteFumaca(janela) {
     encerrarFumaca(false, `render-process-gone: ${detalhes?.reason}`));
 
   janela.webContents.on('did-finish-load', async () => {
+    if (fluxoExecutado) return;
+    fluxoExecutado = true;
     try {
       resultadosFumaca.rendererCarregado = true;
 
@@ -150,12 +204,88 @@ function executarTesteFumaca(janela) {
         await new Promise((r) => setTimeout(r, 100));
       }
 
+      // ── Fase 15: validação do DASHBOARD de ponta a ponta ──────────────
+      // Cria dados REAIS pelos módulos existentes (missão + receita) para
+      // conferir que os números exibidos no painel vêm das fontes.
+      const jogadorId = criacao?.jogador?.id ?? null;
+      const dadosCriados = await janela.webContents.executeJavaScript(
+        `(async () => {
+          const hoje = new Date().toISOString().slice(0, 10);
+          const missao = await window.pulso.missao.criar({ titulo: 'Miss\\u00e3o do teste de fuma\\u00e7a' });
+          const transacao = await window.pulso.financa.criarTransacao({
+            jogadorId: ${Number(jogadorId) || 0},
+            tipo: 'receita',
+            valorCentavos: 12345,
+            categoria: 'salario',
+            descricao: 'Receita do teste de fuma\\u00e7a',
+            data: hoje,
+          });
+          return { missaoOk: !!missao && missao.ok === true, transacaoOk: !!transacao && transacao.ok === true };
+        })()`,
+        true,
+      );
+      // O jogador passou a existir durante o teste; recarrega o renderer
+      // para que o boot identifique o operador e leve ao painel consolidado.
+      // Confere que o painel ficou VISÍVEL e que os blocos essenciais
+      // (operador, XP, missões, finanças e as 5 ações rápidas) renderizaram.
+      try {
+        const recarregado = new Promise((r) => janela.webContents.once('did-finish-load', r));
+        janela.webContents.reload();
+        await recarregado;
+
+        const inicioDashboard = Date.now();
+        while (Date.now() - inicioDashboard < 12_000) {
+          const estado = await janela.webContents.executeJavaScript(
+            `(() => {
+              const visao = document.getElementById('visao-dashboard');
+              if (!visao || visao.classList.contains('oculto')) return null;
+              return {
+                nome: document.getElementById('dash-jogador-nome')?.textContent ?? '',
+                nivel: document.getElementById('dash-nivel')?.textContent ?? '',
+                xp: document.getElementById('dash-xp-total')?.textContent ?? '',
+                missoes: document.getElementById('dash-missoes')?.textContent ?? '',
+                financas: document.getElementById('dash-financas')?.textContent ?? '',
+                pontos: document.getElementById('dash-pontos')?.textContent ?? '',
+                acoes: document.querySelectorAll(
+                  '#dash-acao-nova-missao, #dash-acao-novo-projeto, #dash-acao-nova-transacao, #dash-acao-nova-conta, #dash-acao-novo-servico'
+                ).length,
+              };
+            })()`,
+            true,
+          );
+          if (
+            estado
+            && estado.nome === 'Operador Teste'
+            && estado.acoes === 5
+            // valor REALMENTE criado (R$ 123,45) exibido no bloco financeiro
+            && /123,45/.test(estado.financas)
+          ) {
+            resultadosFumaca.dashboard = {
+              visivel: true,
+              operador: estado.nome,
+              nivel: estado.nivel,
+              xp: estado.xp,
+              pontos: estado.pontos,
+              missoes: estado.missoes,
+              financas: estado.financas,
+              acoesRapidas: estado.acoes,
+              dadosCriados,
+            };
+            break;
+          }
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      } catch (erro) {
+        resultadosFumaca.dashboard = { visivel: false, erro: erro.message };
+      }
+
       const bancoOk =
         resultadosFumaca.banco?.inicializado === true && resultadosFumaca.banco.versaoSchema >= 1;
       const jogadorOk =
         resultadosFumaca.jogador?.preparado === true &&
         resultadosFumaca.jogador?.criado === true &&
         resultadosFumaca.jogador?.carregado === true;
+      const dashboardOk = resultadosFumaca.dashboard?.visivel === true;
       const ok =
         resultadosFumaca.aplicacaoIniciou &&
         resultadosFumaca.janelaCriada &&
@@ -163,12 +293,13 @@ function executarTesteFumaca(janela) {
         jogadorOk &&
         resultadosFumaca.rendererPronto &&
         resultadosFumaca.ipcAtivo &&
+        dashboardOk &&
         resultadosFumaca.errosConsole.length === 0;
       encerrarFumaca(
         ok,
         ok
           ? null
-          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, errosConsole=${resultadosFumaca.errosConsole.length}`,
+          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, dashboard=${JSON.stringify(resultadosFumaca.dashboard ?? null)}, errosConsole=${resultadosFumaca.errosConsole.length}`,
       );
     } catch (erro) {
       encerrarFumaca(false, `falha na verificação do renderer: ${erro.message}`);
@@ -177,6 +308,45 @@ function executarTesteFumaca(janela) {
 }
 
 // ── IPC (superfície mínima) ─────────────────────────────────────────────
+function configLoja() {
+  return Object.freeze({
+    categorias: CATEGORIAS_DESEJO_LOJA,
+    prioridades: PRIORIDADES_DESEJO_LOJA,
+    rotulosPrioridades: ROTULOS_PRIORIDADES_LOJA,
+    estados: ESTADOS_DESEJO_LOJA,
+    rotulosEstados: ROTULOS_ESTADOS_LOJA,
+  });
+}
+
+/** Configuração somente leitura dos serviços para a interface (Fase 10.1). */
+function configServico() {
+  return Object.freeze({
+    categorias: CATEGORIAS_SERVICO,
+    estados: ESTADOS_SERVICO_ORDEM,
+    rotulosEstados: ESTADOS_SERVICO_ROTULOS,
+  });
+}
+
+/** Configuração somente leitura das contas/despesas para a interface (Fase 10.2). */
+function configConta() {
+  return Object.freeze({
+    estados: ESTADOS_CONTA_ORDEM,
+    rotulosEstados: ESTADOS_CONTA_ROTULOS,
+    situacoes: SITUACOES_CONTA_ORDEM,
+    rotulosSituacoes: SITUACOES_CONTA_ROTULOS,
+    formatoReferencia: FORMATO_REFERENCIA,
+  });
+}
+
+/** Configuração somente leitura das recorrências para a interface (Fase 10.3). */
+function configRecorrencia() {
+  return Object.freeze({
+    frequencias: FREQUENCIAS_RECORRENCIA.map((f) => Object.freeze({ valor: f.valor, rotulo: f.rotulo })),
+    estados: ESTADOS_RECORRENCIA_ORDEM,
+    rotulosEstados: ESTADOS_RECORRENCIA_ROTULOS,
+  });
+}
+
 function registrarIpc() {
   ipcMain.handle(canais.INFO_SISTEMA, () => ({
     nome: 'PULSO',
@@ -479,6 +649,170 @@ function registrarIpc() {
       const situacao = servicoFinanca.situacaoOrcamento(Number(id ?? 0));
       return { ok: true, orcamento: situacao.orcamento, situacao: situacao.situacao };
     }));
+
+  // ── Loja / Lista de Desejos (Fase 09) ──────────────────────────────────
+  ipcMain.handle(canais.LOJA_CONFIG, () =>
+    traduzirResultadoOperacao(() => ({ ok: true, config: configLoja() })));
+  ipcMain.handle(canais.LOJA_LISTAR, (_evento, { jogadorId, estado = null, categoria = null, prioridade = null } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      desejos: servicoLoja.listar(Number(jogadorId ?? 0), { estado, categoria, prioridade }),
+    })));
+  ipcMain.handle(canais.LOJA_OBTER, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, desejo: servicoLoja.obter(Number(id ?? 0)) })));
+  ipcMain.handle(canais.LOJA_CRIAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const desejo = servicoLoja.criar(Number(dados.jogadorId ?? 0), dados);
+      return { ok: true, desejo };
+    }));
+  ipcMain.handle(canais.LOJA_ATUALIZAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const desejo = servicoLoja.atualizar(Number(dados.id ?? 0), dados);
+      return { ok: true, desejo };
+    }));
+  ipcMain.handle(canais.LOJA_ANALISAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, desejo: servicoLoja.analisar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.LOJA_PLANEJAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, desejo: servicoLoja.planejar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.LOJA_COMPRAR, (_evento, { id, precoFinal, valorPagoCentavos, data, observacao } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      desejo: servicoLoja.comprar(Number(id ?? 0), {
+        precoFinal: precoFinal ?? valorPagoCentavos,
+        data,
+        observacao,
+      }),
+    })));
+  ipcMain.handle(canais.LOJA_CANCELAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, desejo: servicoLoja.cancelar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.LOJA_HISTORICO, (_evento, { jogadorId } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      compras: servicoLoja.listarComprados(Number(jogadorId ?? 0)),
+    })));
+  ipcMain.handle(canais.LOJA_RESUMO, (_evento, { jogadorId } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      resumo: servicoLoja.resumo(Number(jogadorId ?? 0)),
+    })));
+
+  // ── Serviços (Fase 10.1) — sem integração financeira ──────────────────
+  ipcMain.handle(canais.SERVICO_CONFIG, () =>
+    traduzirResultadoOperacao(() => ({ ok: true, config: configServico() })));
+  ipcMain.handle(canais.SERVICO_LISTAR, (_evento, { jogadorId, estado = null, categoria = null } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      servicos: servicoServicos.listar(Number(jogadorId ?? 0), { estado, categoria }),
+    })));
+  ipcMain.handle(canais.SERVICO_OBTER, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, servico: servicoServicos.obter(Number(id ?? 0)) })));
+  ipcMain.handle(canais.SERVICO_CRIAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const servico = servicoServicos.criar(Number(dados.jogadorId ?? 0), dados);
+      return { ok: true, servico };
+    }));
+  ipcMain.handle(canais.SERVICO_ATUALIZAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const servico = servicoServicos.atualizar(Number(dados.id ?? 0), dados);
+      return { ok: true, servico };
+    }));
+  ipcMain.handle(canais.SERVICO_ATIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, servico: servicoServicos.ativar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.SERVICO_DESATIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, servico: servicoServicos.desativar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.SERVICO_ARQUIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, servico: servicoServicos.arquivar(Number(id ?? 0)) })));
+
+  // ── Contas / Despesas (Fase 10.2) — sem integração financeira ─────────
+  // Criar/editar/cancelar uma conta NÃO cria transação e NÃO altera saldo.
+  ipcMain.handle(canais.CONTA_CONFIG, () =>
+    traduzirResultadoOperacao(() => ({ ok: true, config: configConta() })));
+  ipcMain.handle(canais.CONTA_LISTAR, (_evento, { jogadorId, servicoId = null, situacao = null } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      contas: servicoContas.listar(Number(jogadorId ?? 0), { servicoId, situacao }),
+    })));
+  ipcMain.handle(canais.CONTA_OBTER, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, conta: servicoContas.obter(Number(id ?? 0)) })));
+  ipcMain.handle(canais.CONTA_CRIAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const conta = servicoContas.criar(Number(dados.jogadorId ?? 0), dados);
+      return { ok: true, conta };
+    }));
+  ipcMain.handle(canais.CONTA_ATUALIZAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const conta = servicoContas.atualizar(Number(dados.id ?? 0), dados);
+      return { ok: true, conta };
+    }));
+  ipcMain.handle(canais.CONTA_CANCELAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, conta: servicoContas.cancelar(Number(id ?? 0)) })));
+
+  // Pagamento de conta (Fase 10.5) — transforma obrigação em DESPESA financeira.
+  // Cria transação DESPESA + marca conta como PAGA + atualiza carteira, tudo em
+  // uma transação SQLite atômica. Valor pago pode diferir do esperado.
+  ipcMain.handle(canais.CONTA_PAGAR, (_evento, { id, jogadorId, valorPagoCentavos, paidAt, paymentDescription } = {}) =>
+    traduzirResultadoOperacao(() => {
+      const contaId = Number(id ?? 0);
+      const dados = {
+        valorPagoCentavos,
+        paidAt,
+        paymentDescription: paymentDescription ?? null,
+      };
+      const resultado = servicoPagamentos.registrarPagamento(Number(jogadorId ?? 0), contaId, dados);
+      return {
+        ok: true,
+        conta: resultado.conta,
+        transacao: resultado.transacao,
+        resumo: resultado.resumo,
+      };
+    }));
+
+  // ── Recorrências (Fase 10.3) — sem integração financeira ───────────────
+  // Criar/editar/ativar/desativar/arquivar uma recorrência NÃO gera conta,
+  // NÃO cria transação e NÃO altera saldo (geração de contas é a Fase 10.4).
+  ipcMain.handle(canais.RECURRENCIA_CONFIG, () =>
+    traduzirResultadoOperacao(() => ({ ok: true, config: configRecorrencia() })));
+  ipcMain.handle(canais.RECURRENCIA_LISTAR, (_evento, { jogadorId, servicoId = null, estado = null } = {}) =>
+    traduzirResultadoOperacao(() => ({
+      ok: true,
+      recorrencias: servicoRecorrencias.listar(Number(jogadorId ?? 0), { servicoId, estado }),
+    })));
+  ipcMain.handle(canais.RECURRENCIA_OBTER, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, recorrencia: servicoRecorrencias.obter(Number(id ?? 0)) })));
+  ipcMain.handle(canais.RECURRENCIA_CRIAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const recorrencia = servicoRecorrencias.criar(Number(dados.jogadorId ?? 0), dados);
+      return { ok: true, recorrencia };
+    }));
+  ipcMain.handle(canais.RECURRENCIA_ATUALIZAR, (_evento, dados = {}) =>
+    traduzirResultadoOperacao(() => {
+      const recorrencia = servicoRecorrencias.atualizar(Number(dados.id ?? 0), dados);
+      return { ok: true, recorrencia };
+    }));
+  ipcMain.handle(canais.RECURRENCIA_ATIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, recorrencia: servicoRecorrencias.ativar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.RECURRENCIA_DESATIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, recorrencia: servicoRecorrencias.desativar(Number(id ?? 0)) })));
+  ipcMain.handle(canais.RECURRENCIA_ARQUIVAR, (_evento, { id } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, recorrencia: servicoRecorrencias.arquivar(Number(id ?? 0)) })));
+
+  // ── Geração de ocorrências (Fase 10.4) ────────────────────────────────
+  // Transforma a regra em contas PENDENTES num período (idempotente).
+  // NÃO paga, NÃO cria transação e NÃO altera saldo/carteira/orçamento.
+  ipcMain.handle(canais.RECURRENCIA_GERAR, (_evento, { id, periodoInicio = null, periodoFim = null } = {}) =>
+    traduzirResultadoOperacao(() => {
+      const geracao = servicoGeracaoOcorrencias.gerar(Number(id ?? 0), { periodoInicio, periodoFim });
+      registro.info(
+        `Geração de ocorrências: encontradas=${geracao.encontradas}, criadas=${geracao.criadas}, existentes=${geracao.existentes}.`,
+      );
+      return { ok: true, geracao };
+    }));
+
+  // ── Dashboard (Fase 15) ───────────────────────────────────────────────
+  // Somente LEITURA: consolida os serviços existentes numa única visão.
+  // Nenhuma escrita, nenhuma regra nova, nenhum banco próprio.
+  ipcMain.handle(canais.DASHBOARD_VISAO, (_evento, { anoMes = null } = {}) =>
+    traduzirResultadoOperacao(() => ({ ok: true, visao: servicoDashboard.visao({ anoMes }) })));
 }
 
 /**
@@ -559,6 +893,10 @@ async function aoIniciar() {
   const repositorioCarteira = new RepositorioCarteira(estadoBanco.banco);
   const repositorioTransacao = new RepositorioTransacao(estadoBanco.banco);
   const repositorioOrcamento = new RepositorioOrcamento(estadoBanco.banco);
+  const repositorioDesejo = new RepositorioDesejo(estadoBanco.banco);
+  const repositorioServico = new RepositorioServico(estadoBanco.banco);
+  const repositorioConta = new RepositorioConta(estadoBanco.banco);
+  const repositorioRecorrencia = new RepositorioRecorrencia(estadoBanco.banco);
 
   // Criação atômica: jogador + status + progressão + carteira em uma transação.
   servicoStatus = new ServicoStatus({ repositorio: repositorioStatus, repositorioJogador });
@@ -591,10 +929,52 @@ async function aoIniciar() {
     },
   });
   servicoMissao = new ServicoMissao({ repositorio: repositorioMissao });
+  servicoLoja = new ServicoLoja({
+    repositorio: repositorioDesejo,
+    repositorioJogador,
+    servicoFinanca,
+    banco: estadoBanco.banco,
+  });
+  servicoServicos = new ServicoServicos({
+    repositorio: repositorioServico,
+    repositorioJogador,
+  });
+  servicoContas = new ServicoContas({
+    repositorio: repositorioConta,
+    repositorioServico,
+    repositorioJogador,
+  });
+  servicoRecorrencias = new ServicoRecorrencias({
+    repositorio: repositorioRecorrencia,
+    repositorioServico,
+    repositorioJogador,
+  });
+  servicoGeracaoOcorrencias = new ServicoGeracaoOcorrencias({
+    repositorioRecorrencia,
+    repositorioContas: repositorioConta,
+    banco: estadoBanco.banco,
+  });
+  servicoPagamentos = new ServicoPagamentos({
+    repositorio: repositorioConta,
+    servicoFinanca,
+    banco: estadoBanco.banco,
+  });
   servicoProjeto = new ServicoProjeto({
     repositorio: repositorioProjeto,
     repositorioMissao,
     repositorioJogador,
+  });
+  // Dashboard (Fase 15): camada de CONSOLIDAÇÃO — somente leitura, reutiliza
+  // os serviços existentes. Não possui banco próprio nem regras novas.
+  servicoDashboard = new ServicoDashboard({
+    servicoJogador,
+    servicoStatus,
+    servicoProgressao,
+    servicoMissao,
+    servicoProjeto,
+    servicoFinanca,
+    servicoServicos,
+    servicoContas,
   });
 
   registrarIpc();

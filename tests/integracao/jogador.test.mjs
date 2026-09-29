@@ -139,7 +139,9 @@ test('evolução: banco da Fase 02 recebe as migrações pendentes sem repetir a
     const faseAnterior = inicializarBanco({ diretorioDados: diretorio, migracoes: [MIGRACOES[0]] });
     faseAnterior.fechar();
 
-    // aplicação atual aplica as migrações 002..007 (jogador, status, missões, progressão, projetos, finanças)
+    // aplicação atual aplica as migrações 002..013 (jogador, status, missões,
+    // progressão, projetos, finanças, desejos, conciliação, serviços, contas,
+    // recorrências e vínculo da geração)
     const atual = inicializarBanco({ diretorioDados: diretorio });
     try {
       assert.deepEqual(atual.migracoesAplicadas, [
@@ -149,8 +151,15 @@ test('evolução: banco da Fase 02 recebe as migrações pendentes sem repetir a
         { versao: 5, nome: 'criar-tabelas-progressao' },
         { versao: 6, nome: 'criar-tabela-projetos' },
         { versao: 7, nome: 'criar-tabelas-financas' },
+        { versao: 8, nome: 'criar-tabela-desejo' },
+        { versao: 9, nome: 'conciliar-progressao-legado' },
+        { versao: 10, nome: 'criar-tabela-servico' },
+        { versao: 11, nome: 'criar-tabela-servico-conta' },
+        { versao: 12, nome: 'criar-tabela-servico-recorrencia' },
+        { versao: 13, nome: 'adicionar-recorrencia-id-em-servico-conta' },
+        { versao: 14, nome: 'campos-de-pagamento-e-estado-paga-em-servico-conta' },
       ]);
-      assert.equal(atual.versaoSchema, 7);
+      assert.equal(atual.versaoSchema, 14);
 
       // a tabela do jogador está disponível ao serviço
       const servico = new ServicoJogador({ repositorio: new RepositorioJogador(atual.banco) });
@@ -163,7 +172,7 @@ test('evolução: banco da Fase 02 recebe as migrações pendentes sem repetir a
     const terceira = inicializarBanco({ diretorioDados: diretorio });
     try {
       assert.deepEqual(terceira.migracoesAplicadas, []);
-      assert.equal(terceira.versaoSchema, 7);
+      assert.equal(terceira.versaoSchema, 14);
     } finally {
       terceira.fechar();
     }

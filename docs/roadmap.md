@@ -13,14 +13,20 @@ Fases conhecidas do projeto. Nenhuma fase antecipa o conteúdo da seguinte; o de
 | 06 | Progressão | XP, níveis e evolução | ✅ Concluída |
 | 07 | Projetos | Gestão de projetos | ✅ Concluída |
 | 08 | Finanças | Transações, carteira, orçamento | ✅ Concluída |
-| 09 | Loja / Lista de Desejos | Itens, desejos e compras | ⬜ Pendente |
-| 10 | Serviços e Despesas | Recorrências, contas e serviços | ⬜ Pendente |
+| 09 | Loja / Lista de Desejos | Itens, desejos e compras | ✅ Concluída |
+| 10.1 | Serviços (estrutura) | Estrutura permanente de serviços recorrentes | ✅ Concluída |
+| 10.2 | Contas e Despesas | Ocorrências concretas de serviços, sem movimentar dinheiro | ✅ Concluída |
+| 10.3 | Recorrências | Regra de repetição de serviços (frequência, período, vencimento, valor esperado) | ✅ Concluída |
+| 10.4 | Geração de Ocorrências | Transforma a regra em contas pendentes num período (idempotente, sem movimentar dinheiro) | ✅ Concluída |
+| 10.5 | Pagamentos | Registra o pagamento da conta: transação de despesa via Fase 08, vínculo conta↔transação, saldo atualizado (atômico, sem duplicidade) | ✅ Concluída |
+| 10.6 | Visão e Estabilização | Hub "Serviços e Despesas", navegação entre Serviços · Recorrências · Contas, filtros/situações consistentes, integração 10.1→10.5, testes de integração + regressão, documentação final | ✅ Concluída |
+| 10 | Serviços e Despesas (total) | Recorrências, contas, serviços e pagamentos consolidados em um único fluxo | ✅ Concluída (10.1–10.6) |
 | 11 | Habilidades | Árvore de habilidades | ⬜ Pendente |
 | 12 | Música | Acompanhamento musical | ⬜ Pendente |
 | 13 | Mapa / Trilha | Visualização em rede / trilha | ⬜ Pendente |
 | 14 | Conquistas | Conquistas e marcos | ⬜ Pendente |
-| 15 | Dashboard | Painel consolidado definitivo | ⬜ Pendente |
-| 16 | Polimento | Refinamento visual e de experiência | ⬜ Pendente |
+| 15 | Dashboard | Painel consolidado definitivo | ✅ Concluída |
+| 16 | Polimento | Refinamento visual e de experiência | ✅ Concluída |
 | 17 | Testes e Estabilização | Cobertura, correções e estabilidade | ⬜ Pendente |
 | 18 | Portabilidade | Pacotes separados: Linux, Windows e pendrive | ⬜ Pendente |
 
