@@ -900,6 +900,16 @@ async function aoIniciar() {
     registro.info(
       `Banco de dados ${estadoBanco.criado ? 'criado' : 'reutilizado'} (schema v${estadoBanco.versaoSchema}, ${estadoBanco.migracoesAplicadas.length} migração(ões) nesta execução).`,
     );
+    // Uma migração reescrita depois de aplicada deixa o banco com uma versão
+    // que promete um schema e entrega outro. O conserto é sempre uma migração
+    // nova; aqui só fica o registro para o diagnóstico não ser invisível.
+    for (const divergencia of estadoBanco.divergencias) {
+      registro.aviso(
+        `Migração ${divergencia.versao} gravada como "${divergencia.nomeNoBanco}" e hoje `
+        + `nomeada "${divergencia.nomeNoCodigo}" — o banco pode ter um schema diferente do `
+        + 'esperado. A correção chega por migração; nenhum dado é apagado por isso.',
+      );
+    }
   } catch (erro) {
     registro.erro('Falha ao inicializar o banco de dados.', erro);
     if (MODO_TESTE_FUMACA) {
