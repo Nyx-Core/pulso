@@ -22,12 +22,23 @@ import { RepositorioProjeto } from '../../src/core/database/repositorios/projeto
 import { RepositorioCarteira } from '../../src/core/database/repositorios/carteira.js';
 import { RepositorioTransacao } from '../../src/core/database/repositorios/transacao.js';
 import { RepositorioOrcamento } from '../../src/core/database/repositorios/orcamento.js';
+import { RepositorioDesejo } from '../../src/core/database/repositorios/desejo.js';
+import { RepositorioServico } from '../../src/core/database/repositorios/servico.js';
+import { RepositorioConta } from '../../src/core/database/repositorios/conta.js';
+import { RepositorioRecorrencia } from '../../src/core/database/repositorios/recorrencia.js';
 import { ServicoJogador } from '../../src/core/aplicacao/servico-jogador.js';
 import { ServicoStatus } from '../../src/core/aplicacao/servico-status.js';
 import { ServicoMissao } from '../../src/core/aplicacao/servico-missao.js';
 import { ServicoProgressao } from '../../src/core/aplicacao/servico-progressao.js';
 import { ServicoProjeto } from '../../src/core/aplicacao/servico-projeto.js';
 import { ServicoFinanca } from '../../src/core/aplicacao/servico-financa.js';
+import { ServicoLoja } from '../../src/core/aplicacao/servico-loja.js';
+import { ServicoServicos } from '../../src/core/aplicacao/servico-servicos.js';
+import { ServicoContas } from '../../src/core/aplicacao/servico-contas.js';
+import { ServicoRecorrencias } from '../../src/core/aplicacao/servico-recorrencias.js';
+import { ServicoGeracaoOcorrencias } from '../../src/core/aplicacao/servico-geracao-ocorrencias.js';
+import { ServicoPagamentos } from '../../src/core/aplicacao/servico-pagamentos.js';
+import { ServicoDashboard } from '../../src/core/aplicacao/servico-dashboard.js';
 
 let contador = 0;
 
@@ -65,6 +76,10 @@ export function criarServicos(banco) {
   const repositorioCarteira = new RepositorioCarteira(banco);
   const repositorioTransacao = new RepositorioTransacao(banco);
   const repositorioOrcamento = new RepositorioOrcamento(banco);
+  const repositorioDesejo = new RepositorioDesejo(banco);
+  const repositorioServico = new RepositorioServico(banco);
+  const repositorioConta = new RepositorioConta(banco);
+  const repositorioRecorrencia = new RepositorioRecorrencia(banco);
 
   const servicoStatus = new ServicoStatus({ repositorio: repositorioStatus, repositorioJogador });
   const servicoProgressao = new ServicoProgressao({
@@ -94,6 +109,46 @@ export function criarServicos(banco) {
     repositorioMissao,
     repositorioJogador,
   });
+  const servicoLoja = new ServicoLoja({
+    repositorio: repositorioDesejo,
+    repositorioJogador,
+    servicoFinanca,
+    banco,
+  });
+  const servicoServicos = new ServicoServicos({
+    repositorio: repositorioServico,
+    repositorioJogador,
+  });
+  const servicoContas = new ServicoContas({
+    repositorio: repositorioConta,
+    repositorioServico,
+    repositorioJogador,
+  });
+  const servicoRecorrencias = new ServicoRecorrencias({
+    repositorio: repositorioRecorrencia,
+    repositorioServico,
+    repositorioJogador,
+  });
+  const servicoGeracaoOcorrencias = new ServicoGeracaoOcorrencias({
+    repositorioRecorrencia,
+    repositorioContas: repositorioConta,
+    banco,
+  });
+  const servicoPagamentos = new ServicoPagamentos({
+    repositorio: repositorioConta,
+    servicoFinanca,
+    banco,
+  });
+  const servicoDashboard = new ServicoDashboard({
+    servicoJogador,
+    servicoStatus,
+    servicoProgressao,
+    servicoMissao,
+    servicoProjeto,
+    servicoFinanca,
+    servicoServicos,
+    servicoContas,
+  });
 
   return {
     repositorioJogador,
@@ -105,12 +160,23 @@ export function criarServicos(banco) {
     repositorioCarteira,
     repositorioTransacao,
     repositorioOrcamento,
+    repositorioDesejo,
+    repositorioServico,
+    repositorioConta,
+    repositorioRecorrencia,
     servicoJogador,
     servicoStatus,
     servicoMissao,
     servicoProgressao,
     servicoProjeto,
     servicoFinanca,
+    servicoLoja,
+    servicoServicos,
+    servicoContas,
+    servicoRecorrencias,
+    servicoGeracaoOcorrencias,
+    servicoPagamentos,
+    servicoDashboard,
   };
 }
 
