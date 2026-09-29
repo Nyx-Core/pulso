@@ -616,23 +616,35 @@ const MIGRACAO_014 = Object.freeze({
   versao: 14,
   nome: 'campos-de-pagamento-e-estado-paga-em-servico-conta',
   cima(banco) {
-    // Bancos sintéticos/legados podem ter a v7 registrada como aplicada sem a
-    // tabela `transacao`. Com `PRAGMA foreign_keys = ON` o INSERT valida as
-    // FKs, e um alvo inexistente quebraria a migração — por isso o vínculo só
-    // recebe REFERENCES quando a tabela existe (senão fica coluna simples).
-    const temTransacao = Boolean(
+    // Bancos sintéticos/legados podem ter as tabelas da Fase 10 registradas
+    // como aplicadas sem que existam de fato. Com `PRAGMA foreign_keys = ON`
+    // o SQLite valida a FK no momento do DML — o `CREATE TABLE ... REFERENCES`
+    // passa, mas o `INSERT ... SELECT` seguinte quebra com "no such table".
+    // Por isso cada vínculo só recebe REFERENCES quando a tabela alvo existe
+    // de fato; senão fica coluna simples (o dado é preservado do mesmo jeito,
+    // e a FK é recriada por uma migração posterior se o alvo voltar).
+    const tabelaExiste = (nome) => Boolean(
       banco
-        .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = 'transacao'")
-        .get(),
+        .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(nome),
     );
+    const temTransacao = tabelaExiste('transacao');
+    const temServico = tabelaExiste('servico');
+    const temRecorrencia = tabelaExiste('servico_recorrencia');
     const colunaTransacao = temTransacao
       ? 'transaction_id INTEGER REFERENCES transacao(id) ON DELETE SET NULL'
       : 'transaction_id INTEGER';
+    const colunaServico = temServico
+      ? 'servico_id              INTEGER NOT NULL REFERENCES servico(id) ON DELETE RESTRICT'
+      : 'servico_id              INTEGER NOT NULL';
+    const colunaRecorrencia = temRecorrencia
+      ? 'recorrencia_id          INTEGER REFERENCES servico_recorrencia(id) ON DELETE SET NULL'
+      : 'recorrencia_id          INTEGER';
     banco.exec(`
       CREATE TABLE servico_conta_pagamento (
         id                      INTEGER PRIMARY KEY,
         jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
-        servico_id              INTEGER NOT NULL REFERENCES servico(id) ON DELETE RESTRICT,
+        ${colunaServico},
         referencia              TEXT NOT NULL,
         descricao               TEXT,
         valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
@@ -641,7 +653,7 @@ const MIGRACAO_014 = Object.freeze({
         criado_em               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         atualizado_em           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         cancelado_em            TEXT,
-        recorrencia_id          INTEGER REFERENCES servico_recorrencia(id) ON DELETE SET NULL,
+        ${colunaRecorrencia},
         paid_amount             INTEGER,
         paid_at                 TEXT,
         payment_description     TEXT,

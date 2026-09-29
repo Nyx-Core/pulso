@@ -377,3 +377,96 @@ test('migração 009 não altera banco que já está no formato atual', () => {
     fecharConexao(banco);
   }
 });
+
+// ── Regressão: banco sem a tabela `servico` (Fase 17) ──────────────────
+//
+// A migração 014 criava `servico_conta_pagamento` com
+// `REFERENCES servico(id)` e logo depois copiava as linhas com
+// `INSERT ... SELECT`. Com `PRAGMA foreign_keys = ON`, o SQLite aceita o
+// CREATE, mas valida a FK no DML — e o INSERT quebrava com
+// "no such table: main.servico", travando a abertura da aplicação em
+// bancos legados/sintéticos que registrassem a v11+ sem a tabela `servico`.
+//
+// A mesma proteção que já existia para `transacao` passou a valer para
+// `servico` e `servico_recorrencia`.
+
+test('migração 014: banco sem a tabela `servico` migra sem travar (regressão)', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    // Sobe até a v13 e remove a tabela que a v14 referencia.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    banco.exec('DROP TABLE servico');
+    const temServico = banco
+      .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = 'servico'")
+      .get();
+    assert.equal(temServico, undefined, 'pré-condição: a tabela servico realmente não existe');
+
+    // Antes da correção isto lançava "no such table: main.servico".
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.equal(versaoAtual(banco), MIGRACOES.length, 'a migração deve concluir');
+
+    // A tabela final existe, com os CHECKs de sempre e sem FK órfã.
+    const sql = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    assert.match(sql, /UNIQUE \(servico_id, referencia\)/);
+    assert.match(sql, /CHECK \(estado IN \('pendente', 'paga', 'cancelada'\)\)/);
+    assert.deepEqual(banco.prepare('PRAGMA foreign_key_check').all(), [], 'nenhuma FK órfã');
+    assert.deepEqual(resultado.aplicadas.map((m) => m.versao), [14], 'apenas a v14 faltava');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 014: banco completo mantém as três FKs de servico_conta', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES);
+    const sql = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    // A guarda só remove a REFERENCES quando o alvo NÃO existe: no banco
+    // completo, as três continuam — perder a integridade referencial seria
+    // trocar um bug de inicialização por um bug de dados.
+    assert.match(sql, /REFERENCES servico\(id\) ON DELETE RESTRICT/, 'FK de serviço preservada');
+    assert.match(sql, /REFERENCES servico_recorrencia\(id\)/, 'FK de recorrência preservada');
+    assert.match(sql, /REFERENCES transacao\(id\)/, 'FK de transação preservada');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 014: reconstrói a tabela preservando as contas existentes', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    const agora = new Date().toISOString();
+    banco.prepare("INSERT INTO jogador (nome, criado_em) VALUES (?, ?)").run('Ana', agora);
+    banco
+      .prepare(
+        `INSERT INTO servico (jogador_id, nome, categoria, valor_esperado_centavos, estado, criado_em, atualizado_em)
+         VALUES (1, 'Internet', 'contas', 5000, 'ativo', ?, ?)`,
+      )
+      .run(agora, agora);
+    banco
+      .prepare(
+        `INSERT INTO servico_conta
+           (jogador_id, servico_id, referencia, valor_esperado_centavos, vencimento, estado, criado_em, atualizado_em)
+         VALUES (1, 1, '2026-09', 5000, '2026-09-10', 'pendente', ?, ?)`,
+      )
+      .run(agora, agora);
+
+    aplicarMigracoes(banco, MIGRACOES);
+
+    const conta = banco.prepare('SELECT * FROM servico_conta').all();
+    assert.equal(conta.length, 1, 'a conta não pode sumir na reconstrução');
+    assert.equal(conta[0].referencia, '2026-09');
+    assert.equal(conta[0].valor_esperado_centavos, 5000);
+    // Sem pagamento registrado, a conta não pode virar 'paga'.
+    assert.equal(conta[0].estado, 'pendente');
+    assert.equal(conta[0].paid_amount, null);
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
