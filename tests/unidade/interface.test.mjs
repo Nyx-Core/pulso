@@ -160,13 +160,28 @@ test('toda ação destrutiva pede confirmação antes de agir', () => {
   // Ações que removem ou encerram dados: precisam do diálogo, e a
   // confirmação tem que vir ANTES da chamada ao núcleo — caso contrário,
   // "cancelar" executaria a ação mesmo assim.
-  const funcoes = scriptsRenderer
-    .flatMap(({ nome, fonte }) =>
-      [...fonte.matchAll(/async function (\w*(?:excluir|cancelar|arquivar)\w*)\(\w*\)\s*\{([\s\S]*?)\n\}/g)]
-        .map((m) => ({ nome: `${nome}:${m[1]}`, corpo: m[2] })));
+  //
+  // O padrão cobre os dois jeitos de escrever uma ação destrutiva:
+  //   1. função dedicada        → `excluirMissao()`, `acaoArquivarRecorrencia()`
+  //   2. função despachadora    → `acaoEstadoServico(acao, id)` / `acaoEstado(acao, …)`,
+  //      que concentra a confirmação na ramificação do `acao` destrutivo
+  const padroes = [
+    /async function (\w*(?:excluir|cancelar|arquivar)\w*)\(\w*\)\s*\{([\s\S]*?)\n\}/g,
+    /async function (acaoEstado\w*)\((\w*,\s*\w+)\)\s*\{([\s\S]*?)\n\}/g,
+  ];
 
-  assert.ok(funcoes.length > 0, 'deveria haver funções destrutivas');
-  for (const { nome, corpo } of funcoes) {
+  const funcoes = scriptsRenderer.flatMap(({ nome, fonte }) => padroes.flatMap((p, i) =>
+    [...fonte.matchAll(p)].map((m) => ({
+      nome: `${nome}:${m[1]}`,
+      // no padrão 0 (dedicada) o corpo é o grupo 2; no padrão 1
+      // (despachadora, 2 parâmetros) é o grupo 3
+      corpo: i === 0 ? m[2] : m[3],
+      despachadora: i === 1,
+    }))));
+
+  assert.ok(funcoes.length >= 6, `esperava ao menos 6 ações destrutivas, achou ${funcoes.length}`);
+
+  for (const { nome, corpo, despachadora } of funcoes) {
     assert.ok(/__pulsoUI\.confirmar\(/.test(corpo), `${nome} executa sem confirmação`);
     const iConfirma = corpo.indexOf('__pulsoUI.confirmar(');
     // Qualquer chamada que vá ao núcleo: `await ponteX().algo()`,
@@ -176,6 +191,15 @@ test('toda ação destrutiva pede confirmação antes de agir', () => {
       iChamada !== -1 && iConfirma < iChamada,
       `${nome} chama o núcleo antes de pedir confirmação (cancelar executaria a ação)`,
     );
+    // Numa despachadora a confirmação precisa estar na ramificação do
+    // `acao` destrutivo, e não depois do bloco `try`.
+    if (despachadora) {
+      assert.match(
+        corpo,
+        /if\s*\(\s*acao\s*===?\s*["']/,
+        `${nome} deve condicionar a confirmação ao `+"`acao`"+` destrutivo`,
+      );
+    }
   }
 });
 
