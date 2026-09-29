@@ -7,6 +7,7 @@
   <title>PULSO</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230B0B0D'/%3E%3Ccircle cx='8' cy='8' r='4.5' fill='none' stroke='%23E5484D' stroke-width='1.5'/%3E%3Ccircle cx='8' cy='8' r='1.5' fill='%23E5484D'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/componentes.css" />
   <link rel="stylesheet" href="css/principal.css" />
 </head>
 <body>
@@ -54,7 +55,7 @@
         <p class="aviso" id="aviso-configuracao" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-inicializar">INICIALIZAR</button>
+          <button type="submit" id="botao-inicializar" class="botao-primario">INICIALIZAR</button>
           <button type="button" id="botao-cancelar" class="botao-secundario oculto">CANCELAR</button>
         </div>
       </form>
@@ -353,7 +354,7 @@
         <p class="aviso" id="aviso-formulario-projeto" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-projeto">SALVAR PROJETO</button>
+          <button type="submit" id="botao-salvar-projeto" class="botao-primario">SALVAR PROJETO</button>
           <button type="button" id="botao-cancelar-projeto" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -455,7 +456,7 @@
         <p class="aviso" id="aviso-formulario-missao" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-missao">SALVAR MISSÃO</button>
+          <button type="submit" id="botao-salvar-missao" class="botao-primario">SALVAR MISSÃO</button>
           <button type="button" id="botao-cancelar-missao" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -493,9 +494,11 @@
           <button type="button" class="filtro" data-filtro="receita">RECEITAS</button>
           <button type="button" class="filtro" data-filtro="despesa">DESPESAS</button>
         </div>
-        <select id="filtro-categoria-financa" aria-label="Filtrar por categoria">
-          <option value="">TODAS AS CATEGORIAS</option>
-        </select>
+        <div class="filtros-extras">
+          <select id="filtro-categoria-financa" aria-label="Filtrar por categoria">
+            <option value="">TODAS AS CATEGORIAS</option>
+          </select>
+        </div>
       </div>
       <div class="lista-missoes" id="lista-transacoes"></div>
 
@@ -534,7 +537,7 @@
         <p class="aviso" id="aviso-formulario-transacao" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-transacao">SALVAR</button>
+          <button type="submit" id="botao-salvar-transacao" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-excluir-transacao" class="botao-perigo oculto">EXCLUIR</button>
           <button type="button" id="botao-cancelar-transacao" class="botao-secundario">CANCELAR</button>
         </div>
@@ -566,7 +569,7 @@
         <p class="aviso" id="aviso-formulario-orcamento" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-orcamento">SALVAR</button>
+          <button type="submit" id="botao-salvar-orcamento" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-excluir-orcamento" class="botao-perigo oculto">EXCLUIR</button>
           <button type="button" id="botao-cancelar-orcamento" class="botao-secundario">CANCELAR</button>
         </div>
@@ -612,7 +615,7 @@
           <button type="button" class="filtro" data-filtro="comprado">COMPRADOS</button>
           <button type="button" class="filtro" data-filtro="cancelado">CANCELADOS</button>
         </div>
-        <div class="loja-filtros-extras">
+        <div class="filtros-extras">
           <select id="filtro-categoria-loja" aria-label="Filtrar por categoria">
             <option value="">TODAS AS CATEGORIAS</option>
           </select>
@@ -719,7 +722,7 @@
         <p class="aviso" id="aviso-formulario-desejo" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-desejo">SALVAR</button>
+          <button type="submit" id="botao-salvar-desejo" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-cancelar-desejo" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -750,7 +753,7 @@
         <p class="aviso" id="aviso-formulario-compra" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-compra" class="botao-perigo">REGISTRAR COMPRA</button>
+          <button type="submit" id="botao-salvar-compra" class="botao-primario">REGISTRAR COMPRA</button>
           <button type="button" id="botao-cancelar-compra" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -790,7 +793,7 @@
           <button type="button" class="filtro" data-filtro="inativo">INATIVOS</button>
           <button type="button" class="filtro" data-filtro="arquivado">ARQUIVADOS</button>
         </div>
-        <div class="loja-filtros-extras">
+        <div class="filtros-extras">
           <select id="filtro-categoria-servicos" aria-label="Filtrar por categoria">
             <option value="">TODAS AS CATEGORIAS</option>
           </select>
@@ -874,7 +877,7 @@
         <p class="aviso" id="aviso-formulario-servico" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-servico">SALVAR</button>
+          <button type="submit" id="botao-salvar-servico" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-cancelar-servico" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -919,7 +922,7 @@
           <button type="button" class="filtro" data-filtro="cancelada">CANCELADAS</button>
           <button type="button" class="filtro" data-filtro="paga">PAGAS</button>
         </div>
-        <div class="loja-filtros-extras">
+        <div class="filtros-extras">
           <select id="filtro-servico-contas" aria-label="Filtrar por serviço">
             <option value="">TODOS OS SERVIÇOS</option>
           </select>
@@ -1023,7 +1026,7 @@
         <p class="aviso" id="aviso-formulario-conta" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-conta">SALVAR</button>
+          <button type="submit" id="botao-salvar-conta" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-cancelar-conta" class="botao-secundario">CANCELAR</button>
         </div>
       </form>
@@ -1063,7 +1066,7 @@
           <button type="button" class="filtro" data-filtro="inativa">INATIVAS</button>
           <button type="button" class="filtro" data-filtro="arquivada">ARQUIVADAS</button>
         </div>
-        <div class="loja-filtros-extras">
+        <div class="filtros-extras">
           <select id="filtro-servico-recorrencias" aria-label="Filtrar por serviço">
             <option value="">TODOS OS SERVIÇOS</option>
           </select>
@@ -1204,7 +1207,7 @@
         <p class="aviso" id="aviso-formulario-recorrencia" role="alert"></p>
 
         <div class="acoes-formulario">
-          <button type="submit" id="botao-salvar-recorrencia">SALVAR</button>
+          <button type="submit" id="botao-salvar-recorrencia" class="botao-primario">SALVAR</button>
           <button type="button" id="botao-cancelar-recorrencia" class="botao-secundario">CANCELAR</button>
         </div>
       </form>

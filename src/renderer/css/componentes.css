@@ -1,0 +1,488 @@
+/* PULSO — sistema de componentes (Fase 16 — Polimento)
+   ───────────────────────────────────────────────────────────────────────
+   Botões, formulários, feedback e estados vazios compartilhados por TODAS as
+   telas do aplicativo.
+
+   Contexto: até aqui essas regras viviam espalhadas por módulo e apenas
+   `#formulario-jogador` e três <select> tinham estilo — os demais campos
+   apareciam com o visual branco padrão do navegador dentro de uma aplicação
+   escura, e `.botao-primario` sequer existia (os botões primários saíam com
+   o estilo nativo do sistema operacional).
+
+   Carregado depois de `base.css` (tokens) e antes de `principal.css`
+   (telas), de modo que regras específicas de módulo possam ajustar o que for
+   particular sem precisar reimplementar a base.
+
+   Identidade mantida: preto / vermelho / cinza / branco, vermelho como
+   DESTAQUE (ação primária, atenção) e nunca como preenchimento de tela. */
+
+/* ── Botões ────────────────────────────────────────────────────────────
+   Altura mínima de 28px (WCAG 2.5.8) e um único par de medidas para que
+   primário, secundário e perigo alinhem na mesma linha. */
+
+button {
+  font-family: var(--pulso-mono);
+  border-radius: var(--pulso-raio);
+  min-height: var(--pulso-alvo-minimo);
+  max-width: 100%;
+  /* transitions explícitas: `all` obriga o navegador a repintar propriedades
+     irrelevantes a cada hover (custo evitável em listas longas) */
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Primário — a ação principal da tela. Superfície escura com borda e texto
+   vermelhos; o preenchimento vermelho sólido fica reservado ao hover e ao
+   estado "armado" (confirmação de exclusão). */
+.botao-primario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pulso-espaco-2);
+  background: transparent;
+  border: 1px solid var(--pulso-vermelho);
+  color: var(--pulso-vermelho);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  padding: 7px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.botao-primario:hover:not(:disabled) {
+  background: var(--pulso-vermelho-escuro);
+  border-color: var(--pulso-vermelho);
+  color: var(--pulso-branco);
+}
+
+.botao-primario:active:not(:disabled) {
+  background: var(--pulso-vermelho);
+  color: var(--pulso-branco);
+}
+
+/* Secundário — navegação, filtros e ações terciárias. */
+.botao-secundario {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pulso-espaco-2);
+  background: transparent;
+  border: 1px solid var(--pulso-cinza-escuro);
+  color: var(--pulso-cinza);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.botao-secundario:hover:not(:disabled) {
+  border-color: var(--pulso-cinza);
+  background: var(--pulso-superficie-alta);
+  color: var(--pulso-branco);
+}
+
+.botao-secundario:active:not(:disabled) {
+  background: var(--pulso-superficie-alta);
+  border-color: var(--pulso-cinza-medio);
+}
+
+/* Perigo — ação destrutiva ou irreversível. Sempre textual ("EXCLUIR",
+   "CANCELAR", "ARQUIVAR"), nunca apenas um ícone. */
+.botao-perigo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pulso-espaco-2);
+  background: transparent;
+  border: 1px solid var(--pulso-perigo);
+  color: var(--pulso-perigo);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  padding: 7px 18px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.botao-perigo:hover:not(:disabled) {
+  background: var(--pulso-perigo);
+  color: var(--pulso-preto);
+  font-weight: 700;
+}
+
+.botao-perigo:active:not(:disabled) {
+  background: var(--pulso-vermelho-escuro);
+  border-color: var(--pulso-perigo);
+  color: var(--pulso-branco);
+}
+
+/* "Armado": segunda etapa da confirmação inline. O preenchimento sólido é o
+   sinal de que a exclusão está prestes a acontecer. */
+.botao-perigo.armed {
+  background: var(--pulso-perigo);
+  color: var(--pulso-preto);
+  font-weight: 700;
+}
+
+/* Botão de ícone (navegação ‹ › do período): quadrado, sem texto. */
+.botao-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--pulso-alvo-minimo);
+  padding: 4px 8px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── Formulários ───────────────────────────────────────────────────────
+   Regras GERAIS. Antes, apenas `#formulario-jogador` (input) e três <select>
+   tinham estilo: os demais campos — missão, projeto, transação, orçamento,
+   desejo, serviço, conta, recorrência, geração, pagamento — apareciam com o
+   visual branco padrão do navegador dentro de uma aplicação escura. */
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pulso-espaco-1);
+  width: 100%;
+  min-width: 0;
+  max-width: 460px;
+}
+
+form label {
+  display: block;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--pulso-cinza);
+  margin-top: var(--pulso-espaco-3);
+}
+
+form label:first-of-type {
+  margin-top: var(--pulso-espaco-1);
+}
+
+form input,
+form select,
+form textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--pulso-alvo-minimo);
+  padding: 9px 12px;
+  background: var(--pulso-superficie);
+  border: 1px solid var(--pulso-cinza-escuro);
+  border-radius: var(--pulso-raio);
+  color: var(--pulso-branco);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+form textarea {
+  resize: vertical;
+  min-height: 80px;
+  line-height: 1.5;
+}
+
+form select {
+  cursor: pointer;
+  /* seta própria: a nativa some com `appearance: none` no tema escuro */
+  appearance: none;
+  padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--pulso-cinza) 50%),
+    linear-gradient(135deg, var(--pulso-cinza) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+form input::placeholder,
+form textarea::placeholder {
+  color: var(--pulso-cinza-medio);
+  opacity: 1;
+}
+
+form input:hover:not(:disabled),
+form select:hover:not(:disabled),
+form textarea:hover:not(:disabled) {
+  border-color: var(--pulso-cinza-medio);
+}
+
+/* Foco por teclado: o anel global (base.css) é substituído aqui por borda
+   vermelha + halo, mais legível sobre campo escuro. */
+form input:focus,
+form select:focus,
+form textarea:focus {
+  outline: none;
+  border-color: var(--pulso-vermelho);
+  box-shadow: 0 0 0 1px var(--pulso-vermelho-escuro);
+}
+
+form input:focus-visible,
+form select:focus-visible,
+form textarea:focus-visible {
+  outline: 2px solid var(--pulso-vermelho-claro);
+  outline-offset: 1px;
+}
+
+form input:disabled,
+form select:disabled,
+form textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Estado inválido: o campo não depende só da cor — a mensagem de erro em
+   `.aviso.erro` é sempre textual e associada ao campo. */
+form input[aria-invalid='true'],
+form select[aria-invalid='true'],
+form textarea[aria-invalid='true'] {
+  border-color: var(--pulso-perigo);
+  box-shadow: 0 0 0 1px var(--pulso-vermelho-escuro);
+}
+
+form .opcional {
+  color: var(--pulso-cinza-medio);
+  letter-spacing: 0.08em;
+}
+
+form .obrigatorio {
+  color: var(--pulso-perigo);
+}
+
+/* Dica de apoio abaixo do campo (formato esperado, exemplo). */
+.dica-campo {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--pulso-cinza);
+  margin-top: 3px;
+}
+
+/* ── Barra de filtros extras (Fase 16) ──────────────────────────────────
+   Os <select> de filtro ficam FORA de <form>, portanto não recebem as regras
+   `form select` acima. Antes eles eram estilizados só dentro de um módulo
+   (.loja-filtros-extras) — e o filtro de categoria das Finanças ficava sem
+   estilo nenhum, aparecendo com o visual branco do navegador. */
+
+.filtros-extras {
+  display: flex;
+  gap: var(--pulso-espaco-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.filtros-extras select {
+  width: auto;
+  max-width: 100%;
+  min-height: var(--pulso-alvo-minimo);
+  padding: 6px 30px 6px 10px;
+  background-color: var(--pulso-superficie);
+  background-image: linear-gradient(45deg, transparent 50%, var(--pulso-cinza) 50%),
+    linear-gradient(135deg, var(--pulso-cinza) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  border: 1px solid var(--pulso-cinza-escuro);
+  border-radius: var(--pulso-raio);
+  color: var(--pulso-branco);
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.15s ease;
+}
+
+.filtros-extras select:hover {
+  border-color: var(--pulso-cinza-medio);
+}
+
+/* ── Feedback: aviso (erro / sucesso / informação) ─────────────────────
+   Antes, todo `.aviso` era vermelho — inclusive mensagens neutras como
+   "Conta cancelada — nenhuma movimentação financeira foi feita." Agora a cor
+   vem do tipo e o tipo também troca o marcador, para que o estado nunca
+   dependa apenas da cor. */
+
+.aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pulso-espaco-2);
+  min-height: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+  color: var(--pulso-cinza);
+  overflow-wrap: anywhere;
+}
+
+.aviso:empty {
+  display: none;
+}
+
+.aviso::before {
+  content: '▸';
+  flex: 0 0 auto;
+  color: currentColor;
+  line-height: 1.5;
+}
+
+.aviso.erro {
+  color: var(--pulso-perigo);
+}
+
+.aviso.erro::before {
+  content: '!';
+  font-weight: 700;
+  width: 1.4em;
+  height: 1.4em;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--pulso-preto);
+  background: var(--pulso-perigo);
+}
+
+.aviso.sucesso {
+  color: var(--pulso-branco);
+  font-weight: 700;
+}
+
+.aviso.sucesso::before {
+  content: '✓';
+  color: var(--pulso-vermelho);
+  font-weight: 700;
+}
+
+.aviso.atencao {
+  color: var(--pulso-alerta);
+}
+
+.aviso.atencao::before {
+  content: '▲';
+}
+
+/* ── Estados vazios ────────────────────────────────────────────────────
+   Sempre explicam o próximo passo, nunca apenas "não há nada". */
+
+.estado-vazio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--pulso-espaco-2);
+  padding: var(--pulso-espaco-6) var(--pulso-espaco-4);
+  text-align: center;
+  color: var(--pulso-cinza);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.estado-vazio::before {
+  content: '◇';
+  font-size: 22px;
+  line-height: 1;
+  color: var(--pulso-cinza-medio);
+}
+
+.estado-vazio .estado-vazio-titulo {
+  color: var(--pulso-branco);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.estado-vazio .estado-vazio-dica {
+  font-size: 12px;
+  color: var(--pulso-cinza);
+  max-width: 46ch;
+  letter-spacing: 0.04em;
+}
+
+/* Estados vazios já existentes (`.missoes-vazio`, `.dash-vazio`): ganham a
+   moldura tracejada e o marcador da nova linguagem, sem perder o texto já
+   escrito por cada tela. */
+.missoes-vazio,
+.dash-vazio {
+  color: var(--pulso-cinza);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+  text-align: center;
+  padding: var(--pulso-espaco-5) var(--pulso-espaco-3);
+  border: 1px dashed var(--pulso-cinza-escuro);
+  overflow-wrap: anywhere;
+}
+
+.missoes-vazio::before,
+.dash-vazio::before {
+  content: '◇ ';
+  color: var(--pulso-cinza-medio);
+}
+
+/* ── Diálogo de confirmação (Fase 16) ──────────────────────────────────
+   Confirmação explícita para ações destrutivas. Substitui o padrão anterior,
+   em que apenas transação e orçamento exigiam segunda confirmação. */
+
+.dialogo-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--pulso-espaco-4);
+  background: rgba(11, 11, 13, 0.82);
+}
+
+.dialogo-painel {
+  width: 100%;
+  max-width: 460px;
+  max-height: calc(100dvh - 2 * var(--pulso-espaco-5));
+  overflow-y: auto;
+  padding: var(--pulso-espaco-5);
+  background: var(--pulso-superficie);
+  border: 1px solid var(--pulso-cinza-escuro);
+  border-left: 3px solid var(--pulso-perigo);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pulso-espaco-3);
+}
+
+.dialogo-titulo {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  color: var(--pulso-branco);
+}
+
+.dialogo-texto {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--pulso-cinza);
+  letter-spacing: 0.03em;
+  overflow-wrap: anywhere;
+}
+
+.dialogo-alvo {
+  font-size: 13px;
+  color: var(--pulso-branco);
+  padding: var(--pulso-espaco-2) var(--pulso-espaco-3);
+  background: var(--pulso-preto);
+  border-left: 2px solid var(--pulso-vermelho);
+  overflow-wrap: anywhere;
+}
+
+.dialogo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pulso-espaco-2);
+  justify-content: flex-end;
+  margin-top: var(--pulso-espaco-1);
+}
+
+
