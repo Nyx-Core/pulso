@@ -1428,9 +1428,18 @@ async function concluirMissao() {
   }
 }
 
-/** Cancela uma missão via IPC. */
+/** Cancela uma missão via IPC — estado terminal, pede confirmação. */
 async function cancelarMissao() {
   if (!jogadorAtual || !missaoAtualId) return;
+  const missao = missoesCarregadas.find((m) => m.id === missaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'CANCELAR MISSÃO',
+    texto: 'CANCELADA é um estado terminal: a missão não pode voltar a ser iniciada ou concluída depois.',
+    alvo: missao?.titulo ?? '',
+    rotuloConfirmar: 'CANCELAR',
+  });
+  if (!confirmado) return;
+
   const resultado = await window.pulso.missao.cancelar(missaoAtualId);
   if (resultado.ok) {
     await carregarMissoes();
