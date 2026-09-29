@@ -385,9 +385,22 @@ function montarAcoesDetalhe(servico) {
 
 async function acaoEstadoServico(acao, id) {
   try {
+    // Arquivar é irreversível: a confirmação vem ANTES de qualquer chamada ao
+    // núcleo, para que cancelar não execute a operação.
+    if (acao === "arquivar") {
+      const nome = servicoAtualNome(id);
+      const confirmado = await __pulsoUI.confirmar({
+        titulo: "ARQUIVAR SERVIÇO",
+        texto: "O serviço sai dos filtros ativos e não gera novas ocorrências. Nenhuma conta é apagada e nenhum valor é movimentado.",
+        alvo: nome,
+        rotuloConfirmar: "ARQUIVAR",
+      });
+      if (!confirmado) return;
+    }
+
     const resultado = await ponteServico()[acao](id);
     if (!resultado.ok) {
-      elementosServico.avisoServicoDetalhe.textContent = resultado.mensagem ?? "Não foi possível concluir a operação.";
+      __pulsoUI.avisar(elementosServico.avisoServicoDetalhe, resultado.mensagem ?? "Não foi possível concluir a operação.", 'erro');
       return;
     }
     renderizarDetalhe(resultado.servico);
@@ -402,6 +415,11 @@ async function acaoEstadoServico(acao, id) {
   } catch (erro) {
     console.error(`PULSO: falha ao executar ${acao} no serviço ${id} — ${erro.message}`, erro);
   }
+}
+
+/** Nome do serviço em cache, usado como alvo da confirmação de arquivamento. */
+function servicoAtualNome(id) {
+  return estadoServico.servicos.find((servico) => servico.id === id)?.nome ?? "";
 }
 
 // ── Formulário (criação e edição) ─────────────────────────────────────────

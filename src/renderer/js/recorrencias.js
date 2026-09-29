@@ -513,6 +513,18 @@ async function acaoDesativarRecorrencia(id) {
 }
 
 async function acaoArquivarRecorrencia(id) {
+  // Arquivar é estado terminal: confirma antes de chamar o núcleo.
+  const regra = estadoRecorrencia.recorrencias.find((r) => r.id === id);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: "ARQUIVAR RECORRÊNCIA",
+    texto: "A regra deixa de gerar ocorrências. As contas já geradas continuam existindo.",
+    alvo: regra
+      ? `${nomeServicoRecorrencia(regra.servicoId)} · ${rotuloFrequenciaRecorrencia(regra.frequencia)}`
+      : "",
+    rotuloConfirmar: "ARQUIVAR",
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteRecorrencia().arquivar(id);
     if (!resultado.ok) {

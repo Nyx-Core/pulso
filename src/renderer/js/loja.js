@@ -454,7 +454,17 @@ function montarAcoesDetalhe(desejo) {
 }
 
 async function acaoEstado(acao, desejo) {
-  elementosLoja.avisoLojaDetalhe.textContent = '';
+  // Cancelar encerra o desejo: é irreversível, então confirma antes de agir.
+  if (acao === 'cancelar') {
+    const confirmado = await __pulsoUI.confirmar({
+      titulo: 'CANCELAR DESEJO',
+      texto: 'O desejo sai da lista de planejados e não pode ser retomado.',
+      alvo: desejo.titulo,
+      rotuloConfirmar: 'CANCELAR DESEJO',
+    });
+    if (!confirmado) return;
+  }
+  __pulsoUI.limparAviso(elementosLoja.avisoLojaDetalhe);
   try {
     const resultado =
       acao === 'analisar'

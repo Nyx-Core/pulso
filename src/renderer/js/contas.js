@@ -550,9 +550,19 @@ function esconderFormularioPagamentoConta() {
   elementosConta.campoPagamentoValor.value = "";
   elementosConta.campoPagamentoData.value = "";
   elementosConta.campoPagamentoObservacao.value = "";
-  elementosConta.avisoFormularioPagamento.textContent = "";
+  __pulsoUI.limparAviso(elementosConta.avisoFormularioPagamento);
 }
 async function acaoCancelarConta(id) {
+  // Cancelar é terminal: a confirmação vem antes de qualquer chamada ao núcleo.
+  const conta = estadoConta.contas.find((c) => c.id === id);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: "CANCELAR CONTA",
+    texto: "A conta é encerrada e deixa de aparecer como pendente. Nenhuma movimentação financeira é feita.",
+    alvo: [conta?.nomeServico, conta?.referencia].filter(Boolean).join(" · "),
+    rotuloConfirmar: "CANCELAR CONTA",
+  });
+  if (!confirmado) return;
+
   try {
     const resultado = await ponteConta().cancelar(id);
     if (!resultado.ok) {

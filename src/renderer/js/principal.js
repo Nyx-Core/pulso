@@ -1454,9 +1454,18 @@ async function cancelarMissao() {
   }
 }
 
-/** Exclui uma missão via IPC. */
+/** Exclui uma missão via IPC — ação irreversível, pede confirmação. */
 async function excluirMissao() {
   if (!jogadorAtual || !missaoAtualId) return;
+  const missao = missoesCarregadas.find((m) => m.id === missaoAtualId);
+  const confirmado = await __pulsoUI.confirmar({
+    titulo: 'EXCLUIR MISSÃO',
+    texto: 'A missão é removida definitivamente do sistema, junto com o histórico de estado, prazo e recompensas.',
+    alvo: missao?.titulo ?? '',
+    rotuloConfirmar: 'EXCLUIR',
+  });
+  if (!confirmado) return;
+
   const resultado = await window.pulso.missao.excluir(missaoAtualId);
   if (resultado.ok) {
     missaoAtualId = null;
