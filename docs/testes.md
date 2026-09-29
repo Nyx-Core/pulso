@@ -242,9 +242,65 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 | Recorrências (Fase 10.3) | unidade + integração | `recorrencia.test.mjs` — domínio (frequências, estados, datas, ajuste de dia 31, valores) e ciclo completo com banco real (vínculo com serviço, isolamento, filtros, arquivamento terminal, **saldo inalterado / zero contas / zero transações**, persistência) |
 | Pagamentos (Fase 10.5) | unidade + integração | `pagamento.test.mjs` — domínio (estados pagáveis, isolamento por dono, valor/data, situação derivada) e ciclo completo com banco real (DESPESA via Fase 08, saldo correto, vínculo conta↔transação, duplicidade bloqueada, atomicidade com rollback, isolamento, persistência) |
 | Dashboard (Fase 15) | unidade + integração + fumaça | `dashboard.test.mjs` (domínio: consolidação, agrupamentos, datas, atributos, status, missões, projetos, financas, contas e serviços, estado vazio, valores correspondem às fontes, sem dados fictícios); `servico-dashboard.test.mjs` (serviço: visão consolidada, período financeiro, saldo atual independente do período, atalhos para listas, vencidas destacadas sem alterar estado, múltiplos dados simultaneamente, criação/conclusão de missão, criação/início de projeto, transação financeira, persistência após reinicialização); smoke end-to-end com Electron (dashboard visível como tela principal, valores exibidos correspondem a missão + transação criados, sem erros de console). Regressão: `npm test` com 398 testes e 0 falhas. |
+| Interface (Fase 16) | unidade | `interface.test.mjs` — contrato da camada de apresentação por **análise estática** de `index.html`, dos três CSS e dos scripts do renderer (sem DOM no runner): todo `.aviso` escrito por `avisar()`/`limparAviso()` e nunca direto, tipos de aviso conhecidos, componentes do CSS todos em uso, ids consultados existentes e sem duplicata, todo campo com `<label>`, referências ARIA resolvendo, **toda ação destrutiva confirmando antes de chamar o núcleo**, diálogo acessível por teclado e paleta restrita à identidade. Ver [3.5](#35-fase-16--polimento). |
 | Processo principal + janela | integração | teste de fumaça (Fase 01) |
 | Persistência (SQLite) | unidade + integração | conexão/PRAGMAs, migrações e ciclo salvar→reabrir→ler em bancos isolados (Fase 02) |
 | Interface | e2e | automação dedicada (Fase 17) |
+
+## 6.1 Fase 16 — Polimento
+
+O bloco acima descreve os testes adicionados na fase:
+
+- `tests/unidade/interface.test.mjs` — 15 testes de **contrato de
+  interface**, por análise estática (a camada de apresentação roda no
+  renderer e não tem DOM disponível no runner):
+
+  1. **feedback sempre tipado** — todo `.aviso` do HTML é escrito por
+     `__pulsoUI.avisar()`/`limparAviso()`, e nenhum módulo escreve
+     `.textContent` direto num `.aviso` (era exatamente o que fazia um
+     erro aparecer como mensagem neutra);
+  2. **tipos conhecidos** — só `erro`, `sucesso`, `atencao` ou `info`, com
+     pelo menos um erro e um sucesso no conjunto;
+  3. **componentes sem órfãos** — as classes de `componentes.css`
+     existem no CSS e são usadas em alguma tela;
+  4. **sem resíduo da unificação** — nem `.armed` no CSS nem `armar()` em
+     `ui.js`;
+  5. **integridade HTML ↔ JS** — todo id consultado pelo JS existe no
+     HTML e não há id duplicado;
+  6. **acessibilidade** — todo campo tem `<label>` associado (ou
+     `aria-label`) e toda referência `aria-describedby`/`aria-labelledby`
+     resolve;
+  7. **ações destrutivas** — toda função `excluir*`/`cancelar*`/`arquivar*`
+     pede confirmação **antes** da primeira chamada ao núcleo, para que
+     cancelar jamais execute a ação;
+  8. **diálogo acessível** — `role="dialog"`, `aria-modal`,
+     `aria-labelledby`, `Esc` e foco inicial em CANCELAR;
+  9. **identidade** — `lang="pt-BR"` e nenhuma cor fora da paleta de
+     `docs/identidade-visual.md` (exceto `#000` em `mask-image`, que é
+     canal alfa, não cor pintada);
+  10. **estados vazios** — nenhum texto cru do tipo "Nenhum X encontrado."
+
+O teste 7 encontrou uma falha real durante a própria fase: **cancelar
+missão** é estado terminal no domínio (`servico-missao.js`, sem retorno
+possível), mas era a única ação destrutiva sem confirmação. Corrigido no
+mesmo momento.
+
+Os testes foram verificados **falhando** quando o problema é reintroduzido
+(ex.: trocar um `avisar()` por `textContent`), para garantir que protegem de
+verdade em vez de apenas passar.
+
+### Estado da suíte
+
+```text
+npm test → 413 testes · 413 passam · 0 falham
+```
+
+- 398 testes anteriores à fase, sem alteração de resultado — nenhuma regra
+  de negócio foi tocada;
+- 14 testes novos de contrato de interface;
+- teste de fumaça real do Electron: `rendererPronto: true`,
+  `errosConsole: []`, dashboard visível com os valores de uma missão e uma
+  transação recém-criados (fluxos críticos verificados de ponta a ponta).
 
 ## 7. Regras
 

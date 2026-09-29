@@ -121,7 +121,7 @@ function renderizarContagens(container, pares, { forcar = false } = {}) {
   container.replaceChildren();
   const algumPositivo = pares.some(([, valor]) => Number(valor) > 0);
   if (!forcar && !algumPositivo) {
-    container.append(criarVazio('Nada registrado ainda.'));
+    container.append(criarVazio('NADA REGISTRADO', 'Registre a primeira movimentação para ver o resumo.'));
     return;
   }
   for (const [rotulo, valor, classeExtra] of pares) {
@@ -129,12 +129,9 @@ function renderizarContagens(container, pares, { forcar = false } = {}) {
   }
 }
 
-/** Parágrafo de estado vazio (nunca dados fictícios). */
-function criarVazio(texto) {
-  const vazio = document.createElement('p');
-  vazio.className = 'dash-vazio';
-  vazio.textContent = texto;
-  return vazio;
+/** Estado vazio (nunca dados fictícios), com o próximo passo indicado. */
+function criarVazio(titulo, dica) {
+  return __pulsoUI.estadoVazio(titulo, dica);
 }
 
 /** Barra de progresso reutilizável (0–1). */
@@ -235,7 +232,10 @@ function renderizarProjetos(projetos) {
     elementosDashboard.projetosProgresso.append(item);
   }
   if (projetos.emAndamentoLista.length === 0) {
-    elementosDashboard.projetosProgresso.append(criarVazio('Nenhum projeto em andamento.'));
+    elementosDashboard.projetosProgresso.append(criarVazio(
+      'NENHUM PROJETO EM ANDAMENTO',
+      'Abra um projeto para acompanhar progresso e prazo.',
+    ));
   }
 }
 
@@ -250,7 +250,10 @@ function renderizarFinancas(financas, periodo) {
   ], { forcar: true });
   elementosDashboard.orcamentos.replaceChildren();
   if (financas.orcamentos.length === 0) {
-    elementosDashboard.orcamentos.append(criarVazio('Nenhum orçamento vigente no período.'));
+    elementosDashboard.orcamentos.append(criarVazio(
+      'NENHUM ORÇAMENTO VIGENTE',
+      'Planeje um limite por categoria para acompanhar os gastos do período.',
+    ));
     return;
   }
   for (const orcamento of financas.orcamentos) {
@@ -278,10 +281,10 @@ function renderizarServicosContas(contas, servicos) {
   ]);
   elementosDashboard.proximasContas.replaceChildren();
   if (contas.proximas.length === 0) {
-    const vazio = document.createElement('li');
-    vazio.className = 'dash-vazio';
-    vazio.textContent = 'Nenhuma conta em aberto.';
-    elementosDashboard.proximasContas.append(vazio);
+    elementosDashboard.proximasContas.append(criarVazio(
+      'NENHUMA CONTA EM ABERTO',
+      'Gere as ocorrências de uma recorrência para ver os próximos vencimentos.',
+    ));
     return;
   }
   for (const conta of contas.proximas) {
@@ -309,7 +312,7 @@ function exibirDashboard() {
     if (el) el.classList.add('oculto');
   }
   elementosDashboard.visao.classList.remove('oculto');
-  elementosDashboard.aviso.textContent = '';
+  __pulsoUI.limparAviso(elementosDashboard.aviso);
   carregarVisaoDashboard();
 }
 
@@ -324,25 +327,25 @@ function voltarAoBoot() {
 async function carregarVisaoDashboard() {
   const jogador = window.__pulsoJogadorAtual ?? null;
   if (!jogador) {
-    elementosDashboard.aviso.textContent = 'Nenhum jogador identificado.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'Nenhum jogador identificado.', 'erro');
     return;
   }
   const ponte = window.pulso?.dashboard;
   if (!ponte?.visao) {
-    elementosDashboard.aviso.textContent = 'A ponte do dashboard não está disponível.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'A ponte do dashboard não está disponível.', 'erro');
     return;
   }
   try {
     const resultado = await ponte.visao({ anoMes: periodoAnoMes });
     if (!resultado.ok) {
-      elementosDashboard.aviso.textContent = resultado.mensagem ?? 'Não foi possível carregar o dashboard.';
+      __pulsoUI.avisar(elementosDashboard.aviso, resultado.mensagem ?? 'Não foi possível carregar o dashboard.', 'erro');
       return;
     }
     renderizarTudoDashboard(resultado.visao);
-    elementosDashboard.aviso.textContent = '';
+    __pulsoUI.limparAviso(elementosDashboard.aviso);
   } catch (erro) {
     console.error(`PULSO: falha ao carregar o dashboard — ${erro.message}`, erro);
-    elementosDashboard.aviso.textContent = 'Falha interna ao carregar o dashboard.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'Falha interna ao carregar o dashboard.', 'erro');
   }
 }
 

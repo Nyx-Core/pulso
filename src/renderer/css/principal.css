@@ -322,49 +322,12 @@
 }
 
 #formulario-jogador {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 460px;
-  width: 100%;
-  min-width: 0;
-  margin-top: 10px;
-}
-
-#formulario-jogador label {
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  color: var(--pulso-cinza);
   margin-top: 10px;
 }
 
 #formulario-jogador .opcional {
-  color: var(--pulso-cinza-escuro);
+  color: var(--pulso-cinza-medio);
   letter-spacing: 0.08em;
-}
-
-#formulario-jogador input {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  background: var(--pulso-superficie);
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-branco);
-  font-family: var(--pulso-mono);
-  font-size: 15px;
-  padding: 10px 12px;
-  outline: none;
-}
-
-#formulario-jogador input:focus {
-  border-color: var(--pulso-vermelho);
-  box-shadow: 0 0 0 1px var(--pulso-vermelho-escuro);
-}
-
-.aviso {
-  min-height: 18px;
-  font-size: 12px;
-  color: var(--pulso-vermelho);
 }
 
 .acoes-formulario {
@@ -373,48 +336,6 @@
   align-items: center;
   gap: 12px;
   margin-top: 6px;
-}
-
-#botao-inicializar {
-  background: transparent;
-  border: 1px solid var(--pulso-vermelho);
-  color: var(--pulso-vermelho);
-  font-family: var(--pulso-mono);
-  font-size: 14px;
-  letter-spacing: 0.24em;
-  padding: 10px 24px;
-  cursor: pointer;
-}
-
-#botao-inicializar:hover:not(:disabled) {
-  background: var(--pulso-vermelho-escuro);
-  color: var(--pulso-branco);
-}
-
-#botao-inicializar:disabled {
-  opacity: 0.45;
-  cursor: wait;
-}
-
-.botao-secundario {
-  background: transparent;
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-cinza);
-  font-family: var(--pulso-mono);
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  padding: 6px 14px;
-  cursor: pointer;
-}
-
-.botao-secundario:hover:not(:disabled) {
-  border-color: var(--pulso-cinza);
-  color: var(--pulso-branco);
-}
-
-.botao-secundario:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 #botao-editar {
@@ -763,7 +684,12 @@
   flex-wrap: wrap;
 }
 
+/* Filtros de lista — mesma silhueta do botão secundário, com o estado ativo
+   marcado por preenchimento + peso (não só pela cor). */
 .filtro {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--pulso-alvo-minimo);
   background: transparent;
   border: 1px solid var(--pulso-cinza-escuro);
   color: var(--pulso-cinza);
@@ -771,18 +697,24 @@
   font-size: 11px;
   letter-spacing: 0.12em;
   cursor: pointer;
-  transition: all 0.2s ease;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .filtro:hover {
   border-color: var(--pulso-cinza);
+  background: var(--pulso-superficie-alta);
   color: var(--pulso-branco);
 }
 
+/* Ativo: fundo vermelho sólido + texto escuro em negrito — legível nos dois
+   eixos da escala, não apenas "mais vermelho". */
 .filtro.ativo {
   background: var(--pulso-vermelho);
   border-color: var(--pulso-vermelho);
-  color: var(--pulso-branco);
+  color: var(--pulso-preto);
+  font-weight: 700;
 }
 
 .lista-missoes {
@@ -840,57 +772,78 @@
   flex-wrap: wrap;
 }
 
+/* Estados — cada um é distinguível SEM depender só da cor:
+   pendente = tracejado · em andamento = contorno branco + fundo elevado ·
+   concluída = bloco branco sólido (texto preto) · cancelada = vermelho.
+   O texto do rótulo (PENDENTE, EM ANDAMENTO…) já carrega o significado. */
 .missao-estado {
   font-size: 10px;
   letter-spacing: 0.14em;
   padding: 3px 8px;
   border: 1px solid;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .missao-estado.pendente {
   color: var(--pulso-cinza);
-  border-color: var(--pulso-cinza);
+  border-color: var(--pulso-cinza-medio);
+  border-style: dashed;
 }
 
 .missao-estado.em_andamento {
   color: var(--pulso-branco);
   border-color: var(--pulso-branco);
+  background: var(--pulso-superficie-alta);
 }
 
 .missao-estado.concluida {
-  color: var(--pulso-sucesso);
-  border-color: var(--pulso-sucesso);
+  color: var(--pulso-preto);
+  background: var(--pulso-branco);
+  border-color: var(--pulso-branco);
+  font-weight: 700;
 }
 
 .missao-estado.cancelada {
   color: var(--pulso-perigo);
   border-color: var(--pulso-perigo);
+  background: rgba(127, 29, 29, 0.22);
 }
 
+/* Prioridades — a mesma escala dos estados:
+   baixa = cinza tracejado · normal = contorno branco ·
+   alta = contorno claro (--pulso-alerta) · crítica = vermelho sólido. */
 .missao-prioridade {
   font-size: 10px;
   letter-spacing: 0.14em;
   padding: 3px 8px;
   border: 1px solid var(--pulso-cinza-escuro);
   color: var(--pulso-cinza);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .missao-prioridade.baixa {
   color: var(--pulso-cinza);
+  border-style: dashed;
 }
 
 .missao-prioridade.normal {
   color: var(--pulso-branco);
+  border-color: var(--pulso-cinza);
 }
 
 .missao-prioridade.alta {
   color: var(--pulso-alerta);
   border-color: var(--pulso-alerta);
+  font-weight: 700;
 }
 
 .missao-prioridade.critica {
-  color: var(--pulso-perigo);
+  color: var(--pulso-branco);
+  background: var(--pulso-perigo);
   border-color: var(--pulso-perigo);
+  font-weight: 700;
 }
 
 .missao-prazo {
@@ -902,241 +855,7 @@
   color: var(--pulso-perigo);
 }
 
-.missoes-vazio {
-  text-align: center;
-  padding: 32px 16px;
-  color: var(--pulso-cinza);
-  font-size: 13px;
-}
-
-/* Formulário de missão */
-#formulario-missao textarea {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  resize: vertical;
-  min-height: 80px;
-}
-
-#formulario-missao select,
-#formulario-transacao select,
-#formulario-orcamento select {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 10px 12px;
-  background: var(--pulso-superficie);
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-branco);
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-#formulario-missao select:focus,
-#formulario-transacao select:focus,
-#formulario-orcamento select:focus {
-  outline: none;
-  border-color: var(--pulso-vermelho);
-}
-
-.obrigatorio {
-  color: var(--pulso-perigo);
-}
-
-/* Botão de perigo */
-.botao-perigo {
-  background: transparent;
-  border: 1px solid var(--pulso-perigo);
-  color: var(--pulso-perigo);
-  padding: 10px 18px;
-  font-family: inherit;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.botao-perigo:hover {
-  background: var(--pulso-perigo);
-  color: var(--pulso-branco);
-}
-
-/* ── Finanças (Fase 08) ─────────────────────────────────────────────── */
-
-/* Resumo: saldo + receitas + despesas do mês */
-.financa-resumo {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 14px;
-  margin: 16px 0 24px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.financa-cartao {
-  border: 1px solid var(--pulso-cinza-escuro);
-  background: var(--pulso-superficie);
-  padding: 14px 16px;
-  min-width: 0;
-}
-
-.financa-cartao-saldo {
-  border-color: var(--pulso-vermelho-escuro);
-}
-
-.financa-saldo {
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--pulso-branco);
-  margin-top: 6px;
-  overflow-wrap: anywhere;
-}
-
-.financa-saldo.financa-negativo {
-  color: var(--pulso-perigo);
-}
-
-.financa-metrica {
-  font-size: 18px;
-  margin-top: 6px;
-  overflow-wrap: anywhere;
-}
-
-.financa-metrica-receita {
-  color: var(--pulso-sucesso);
-}
-
-.financa-metrica-despesa {
-  color: var(--pulso-perigo);
-}
-
-/* Orçamentos */
-.lista-orcamentos {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-  margin: 12px 0 24px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.orcamento-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  text-align: left;
-  background: var(--pulso-superficie);
-  border: 1px solid var(--pulso-cinza-escuro);
-  padding: 12px 14px;
-  color: var(--pulso-branco);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 0.2s ease;
-  min-width: 0;
-}
-
-.orcamento-item:hover {
-  border-color: var(--pulso-vermelho);
-}
-
-.orcamento-categoria {
-  font-size: 13px;
-  letter-spacing: 0.12em;
-  color: var(--pulso-vermelho);
-}
-
-.orcamento-valores {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.orcamento-situacao {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
-
-.orcamento-situacao.ok {
-  color: var(--pulso-cinza);
-}
-
-.orcamento-situacao.estourado {
-  color: var(--pulso-perigo);
-}
-
-.orcamento-barra {
-  display: block;
-  height: 4px;
-  background: var(--pulso-cinza-escuro);
-  width: 100%;
-}
-
-.orcamento-barra-preenchimento {
-  display: block;
-  height: 100%;
-  background: var(--pulso-cinza);
-  transition: width 0.2s ease;
-}
-
-.orcamento-barra-preenchimento.estourado {
-  background: var(--pulso-perigo);
-}
-
-/* Filtro de categoria do histórico */
-#filtro-categoria-financa {
-  padding: 8px 10px;
-  background: var(--pulso-superficie);
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-branco);
-  font-family: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  max-width: 100%;
-  min-width: 0;
-}
-
-#filtro-categoria-financa:focus {
-  outline: none;
-  border-color: var(--pulso-vermelho);
-}
-
-/* Histórico de transações */
-.transacao-item {
-  display: grid;
-  grid-template-columns: auto auto 1fr auto;
-  gap: 10px;
-  align-items: baseline;
-  text-align: left;
-}
-
-.transacao-valor {
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.transacao-valor.receita {
-  color: var(--pulso-sucesso);
-}
-
-.transacao-valor.despesa {
-  color: var(--pulso-perigo);
-}
-
-.transacao-item .missao-item-titulo {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Formulários financeiros */
-#formulario-transacao,
-#formulario-orcamento {
-  max-width: 460px;
-}
+/* Estado vazio da lista de missões: estilo consolidado em componentes.css. */
 
 /* ── Finanças (Fase 08) ─────────────────────────────────────────────── */
 
@@ -1248,16 +967,25 @@
   background: var(--pulso-perigo);
 }
 
-/* Histórico: filtro por categoria */
+/* Histórico: filtro por categoria (o mesmo componente de seleção das telas) */
 #filtro-categoria-financa {
   padding: 6px 10px;
   background: var(--pulso-superficie);
   border: 1px solid var(--pulso-cinza-escuro);
   color: var(--pulso-branco);
   font-family: inherit;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   cursor: pointer;
+  max-width: 100%;
+  min-width: 0;
+  appearance: none;
+  padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--pulso-cinza) 50%),
+    linear-gradient(135deg, var(--pulso-cinza) 50%, transparent 50%);
+  background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
 }
 
 #filtro-categoria-financa:focus {
@@ -1281,37 +1009,15 @@
 }
 
 .transacao-categoria {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--pulso-cinza);
 }
 
-/* Formulários financeiros */
-#formulario-transacao select,
-#formulario-orcamento select {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  padding: 10px 12px;
-  background: var(--pulso-superficie);
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-branco);
-  font-family: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-#formulario-transacao select:focus,
-#formulario-orcamento select:focus {
-  outline: none;
-  border-color: var(--pulso-vermelho);
-}
-
-#formulario-transacao input,
-#formulario-orcamento input {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+/* Formulários financeiros: largura padrão já vem de `form` em componentes.css. */
+#formulario-transacao,
+#formulario-orcamento {
+  max-width: 460px;
 }
 
 /* Responsivo: resumo empilha em janelas estreitas */
@@ -1322,21 +1028,9 @@
 }
 
 /* ── Loja / Lista de Desejos (Fase 09) ───────────────────────────────── */
-.loja-filtros-extras {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.loja-filtros-extras select {
-  background: var(--pulso-preto);
-  border: 1px solid var(--pulso-cinza-escuro);
-  color: var(--pulso-branco);
-  font-family: inherit;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  padding: 6px 8px;
-}
+/* Estilo dos <select> de filtro MOVIDO para `componentes.css` (Fase 16):
+   a barra de filtros é usada por Loja, Serviços, Contas, Recorrências e
+   Finanças — o mesmo componente não deveria viver dentro de um módulo. */
 
 .desejo-item .desejo-topo {
   display: flex;
@@ -1345,31 +1039,40 @@
   flex-wrap: wrap;
 }
 
+/* Prioridades e estados da Loja usam EXATAMENTE a mesma escala das missões
+   (mesma forma, mesma cor por nível) — a diferença entre um desejo e uma
+   missão não pode mudar a leitura do rótulo. */
 .desejo-prioridade {
   font-size: 10px;
   letter-spacing: 0.14em;
   padding: 3px 8px;
   border: 1px solid var(--pulso-cinza-escuro);
   color: var(--pulso-cinza);
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .desejo-prioridade.baixa {
   color: var(--pulso-cinza);
+  border-style: dashed;
 }
 
 .desejo-prioridade.normal {
   color: var(--pulso-branco);
+  border-color: var(--pulso-cinza);
 }
 
 .desejo-prioridade.alta {
-  color: var(--pulso-vermelho);
-  border-color: var(--pulso-vermelho);
+  color: var(--pulso-alerta);
+  border-color: var(--pulso-alerta);
+  font-weight: 700;
 }
 
 .desejo-prioridade.critica {
   color: var(--pulso-branco);
-  background: var(--pulso-vermelho-escuro);
-  border-color: var(--pulso-vermelho);
+  background: var(--pulso-perigo);
+  border-color: var(--pulso-perigo);
+  font-weight: 700;
 }
 
 .desejo-meta {
@@ -1456,16 +1159,23 @@
 }
 
 /* ── Serviços (Fase 10.1) ────────────────────────────────────────────── */
+/* Estados de serviço na mesma escala dos demais módulos:
+   ativo = contorno branco · inativo = cinza tracejado · arquivado = riscado
+   (o riscado é um sinal que não depende de cor). */
 .servico-estado.ativo {
   color: var(--pulso-branco);
+  border-color: var(--pulso-branco);
 }
 
 .servico-estado.inativo {
   color: var(--pulso-cinza);
+  border-color: var(--pulso-cinza-medio);
+  border-style: dashed;
 }
 
 .servico-estado.arquivado {
   color: var(--pulso-cinza);
+  border-color: var(--pulso-cinza-escuro);
   text-decoration: line-through;
 }
 
@@ -1590,12 +1300,10 @@
   color: var(--pulso-perigo);
 }
 
-.dash-vazio {
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--pulso-cinza);
-  font-style: normal;
-}
+/* Os estados vazios do dashboard usam `.estado-vazio`
+   (componentes.css), criado por `__pulsoUI.estadoVazio()`: título +
+   próximo passo, em vez do parágrafo solto `.dash-vazio` que existia
+   aqui e que a Fase 16 substituiu. */
 
 /* progresso (XP de projeto, orçamento): barra + texto */
 .dash-progressos {
@@ -1636,6 +1344,7 @@
   letter-spacing: 0.1em;
   color: var(--pulso-cinza);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .dash-progresso-item {
@@ -1737,6 +1446,65 @@
 
   .dash-periodo-rotulo {
     min-width: 0;
+  }
+}
+
+/* ── Janela estreita (Fase 16) ──────────────────────────────────────────
+   A largura mínima da janela é 800px (config/*.json). Nessa faixa o
+   conteúdo ainda cabe, mas as grades de duas colunas ficam apertadas e
+   os nomes longos começam a colidir com os rótulos de estado. O ajuste
+   é reduzir a coluna de rótulos e deixar o texto dos itens poder quebrar
+   em mais de uma linha, em vez de cortar com reticências. */
+
+@media (max-width: 900px) {
+  .missao-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .missao-card {
+    grid-template-columns: 1fr;
+  }
+
+  .missao-card-titulo,
+  .missao-card-descricao {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .missao-card-detalhes {
+    gap: var(--pulso-espaco-1) var(--pulso-espaco-2);
+  }
+
+  .toolbar-missoes {
+    align-items: stretch;
+  }
+
+  .filtros,
+  .filtros-extras {
+    width: 100%;
+  }
+
+  .filtros-extras select {
+    flex: 1 1 auto;
+  }
+
+  /* O botão de criação ocupa a linha inteira: é a ação principal da tela
+     e não deve ficar espremido ao lado dos filtros. */
+  .toolbar-missoes > .botao-primario {
+    width: 100%;
+  }
+}
+
+/* Altura curta (janela baixa): reduz respiro vertical para que a lista
+   e as ações do rodapé continuem visíveis sem rolagem desnecessária. */
+@media (max-height: 620px) {
+  .tela {
+    padding-block: 10px;
+  }
+
+  .acoes-missao,
+  .dash-atalhos {
+    margin-top: var(--pulso-espaco-3);
   }
 }
 

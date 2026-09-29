@@ -64,19 +64,19 @@ function exibirHub() {
   const dash = document.getElementById("visao-dashboard");
   if (dash) dash.classList.add("oculto");
   consultarElementoHub("visao-servicos-despesas").classList.remove("oculto");
-  elementosHub.aviso.textContent = "";
+  __pulsoUI.limparAviso(elementosHub.aviso);
 }
 
 /** Resumo consolidado (apenas leitura — nada aqui movimenta dinheiro). */
 async function carregarResumoConsolidado() {
   const jogador = window.__pulsoJogadorAtual ?? null;
   if (!jogador) {
-    elementosHub.aviso.textContent = "Nenhum jogador identificado.";
+    __pulsoUI.avisar(elementosHub.aviso, "Nenhum jogador identificado.", 'erro');
     return;
   }
   const p = window.pulso;
   if (!p?.servico || !p?.recorrencia || !p?.conta) {
-    elementosHub.aviso.textContent = "A ponte dos módulos de serviços não está disponível.";
+    __pulsoUI.avisar(elementosHub.aviso, "A ponte dos módulos de serviços não está disponível.", 'erro');
     return;
   }
   try {
@@ -86,7 +86,7 @@ async function carregarResumoConsolidado() {
       p.conta.listar(jogador.id),
     ]);
     if (!servicos.ok || !recorrencias.ok || !contas.ok) {
-      elementosHub.aviso.textContent = "Não foi possível carregar o resumo consolidado.";
+      __pulsoUI.avisar(elementosHub.aviso, "Não foi possível carregar o resumo consolidado.", 'erro');
       return;
     }
     const listaServicos = servicos.servicos ?? [];
@@ -103,10 +103,10 @@ async function carregarResumoConsolidado() {
       emAberto.reduce((soma, c) => soma + (c.valorEsperado ?? 0), 0),
     );
     elementosHub.contasPagas.textContent = String(pagas.length);
-    elementosHub.aviso.textContent = "";
+    __pulsoUI.limparAviso(elementosHub.aviso);
   } catch (erro) {
     console.error(`PULSO: falha ao carregar o resumo consolidado — ${erro.message}`, erro);
-    elementosHub.aviso.textContent = "Falha interna ao carregar o resumo consolidado.";
+    __pulsoUI.avisar(elementosHub.aviso, "Falha interna ao carregar o resumo consolidado.", 'erro');
   }
 }
 

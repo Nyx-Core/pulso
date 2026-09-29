@@ -290,13 +290,13 @@ async function carregarDesejos() {
       prioridade: estado.filtroPrioridade || null,
     });
     if (!resultado.ok) {
-      elementosLoja.avisoLoja.textContent = resultado.mensagem ?? 'Não foi possível carregar a lista de desejos.';
+      __pulsoUI.avisar(elementosLoja.avisoLoja, resultado.mensagem ?? 'Não foi possível carregar a lista de desejos.', 'erro');
       return;
     }
     estado.desejos = resultado.desejos ?? [];
     renderizarDesejos();
   } catch (erro) {
-    elementosLoja.avisoLoja.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoLoja, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao carregar desejos — ${erro.message}`, erro);
   }
 }
@@ -304,10 +304,12 @@ async function carregarDesejos() {
 function renderizarDesejos() {
   elementosLoja.listaDesejos.replaceChildren();
   if (estado.desejos.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhum desejo nesta seleção.';
-    elementosLoja.listaDesejos.append(vazio);
+    elementosLoja.listaDesejos.append(
+      __pulsoUI.estadoVazio(
+        'NENHUM DESEJO NESTA SELEÇÃO',
+        'Adicione um item à lista para planejar preço, prioridade e compra.',
+      ),
+    );
     return;
   }
   for (const desejo of estado.desejos) {
@@ -382,7 +384,7 @@ function renderizarDetalhe(desejo) {
   }
 
   elementosLoja.detalheDescricao.textContent = desejo.descricao || '';
-  elementosLoja.avisoLojaDetalhe.textContent = '';
+  __pulsoUI.limparAviso(elementosLoja.avisoLojaDetalhe);
   montarAcoesDetalhe(desejo);
 }
 
@@ -452,7 +454,17 @@ function montarAcoesDetalhe(desejo) {
 }
 
 async function acaoEstado(acao, desejo) {
-  elementosLoja.avisoLojaDetalhe.textContent = '';
+  // Cancelar encerra o desejo: é irreversível, então confirma antes de agir.
+  if (acao === 'cancelar') {
+    const confirmado = await __pulsoUI.confirmar({
+      titulo: 'CANCELAR DESEJO',
+      texto: 'O desejo sai da lista de planejados e não pode ser retomado.',
+      alvo: desejo.titulo,
+      rotuloConfirmar: 'CANCELAR DESEJO',
+    });
+    if (!confirmado) return;
+  }
+  __pulsoUI.limparAviso(elementosLoja.avisoLojaDetalhe);
   try {
     const resultado =
       acao === 'analisar'
@@ -461,26 +473,25 @@ async function acaoEstado(acao, desejo) {
           ? await ponte().planejar(desejo.id)
           : await ponte().cancelar(desejo.id);
     if (!resultado.ok) {
-      elementosLoja.avisoLojaDetalhe.textContent =
-        resultado.mensagem ?? 'Não foi possível executar a ação.';
+      __pulsoUI.avisar(elementosLoja.avisoLojaDetalhe, resultado.mensagem ?? 'Não foi possível executar a ação.', 'erro');
       return;
     }
     renderizarDetalhe(resultado.desejo);
     carregarResumo();
     carregarDesejos();
   } catch (erro) {
-    elementosLoja.avisoLojaDetalhe.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoLojaDetalhe, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha na ação da loja — ${erro.message}`, erro);
   }
 }
     if (!resultado.ok) {
-      elementosLoja.avisoLojaDetalhe.textContent = resultado.mensagem ?? 'Não foi possível abrir o desejo.';
+      __pulsoUI.avisar(elementosLoja.avisoLojaDetalhe, resultado.mensagem ?? 'Não foi possível abrir o desejo.', 'erro');
       return;
     }
     renderizarDetalhe(resultado.desejo);
     exibirVisaoLoja('visao-loja-detalhe');
   } catch (erro) {
-    elementosLoja.avisoLojaDetalhe.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoLojaDetalhe, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao abrir desejo — ${erro.message}`, erro);
   }
 }
@@ -496,7 +507,7 @@ function exibirFormularioDesejo(desejo = null) {
   elementosLoja.campoDesejoPreco.value = desejo
     ? formatarCentavosParaEntrada(desejo.precoEsperado)
     : '';
-  elementosLoja.avisoFormularioDesejo.textContent = '';
+  __pulsoUI.limparAviso(elementosLoja.avisoFormularioDesejo);
   exibirVisaoLoja('visao-formulario-desejo');
   elementosLoja.campoDesejoTitulo.focus();
 }
@@ -505,7 +516,7 @@ async function salvarDesejo(evento) {
   evento.preventDefault();
   const jogador = jogadorAtualLoja();
   if (!jogador) return;
-  elementosLoja.avisoFormularioDesejo.textContent = '';
+  __pulsoUI.limparAviso(elementosLoja.avisoFormularioDesejo);
   const precoCentavos = lerCentavosLoja(elementosLoja.campoDesejoPreco.value);
   const dados = {
     jogadorId: jogador.id,
@@ -520,8 +531,7 @@ async function salvarDesejo(evento) {
       ? await ponte().atualizar({ id: estado.desejoAtualId, ...dados })
       : await ponte().criar(dados);
     if (!resultado.ok) {
-      elementosLoja.avisoFormularioDesejo.textContent =
-        resultado.mensagem ?? 'Não foi possível salvar o desejo.';
+      __pulsoUI.avisar(elementosLoja.avisoFormularioDesejo, resultado.mensagem ?? 'Não foi possível salvar o desejo.', 'erro');
       return;
     }
     carregarResumo();
@@ -533,7 +543,7 @@ async function salvarDesejo(evento) {
       exibirVisaoLoja('visao-loja');
     }
   } catch (erro) {
-    elementosLoja.avisoFormularioDesejo.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoFormularioDesejo, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao salvar desejo — ${erro.message}`, erro);
   }
 }
@@ -550,14 +560,14 @@ function exibirFormularioCompra(desejo) {
   elementosLoja.campoCompraPreco.value = formatarCentavosParaEntrada(desejo.precoEsperado);
   elementosLoja.campoCompraData.value = dataHojeIsoLoja();
   elementosLoja.campoCompraObservacao.value = '';
-  elementosLoja.avisoFormularioCompra.textContent = '';
+  __pulsoUI.limparAviso(elementosLoja.avisoFormularioCompra);
   exibirVisaoLoja('visao-formulario-compra');
   elementosLoja.campoCompraPreco.focus();
 }
 
 async function salvarCompra(evento) {
   evento.preventDefault();
-  elementosLoja.avisoFormularioCompra.textContent = '';
+  __pulsoUI.limparAviso(elementosLoja.avisoFormularioCompra);
   const precoFinal = lerCentavosLoja(elementosLoja.campoCompraPreco.value);
   const dados = {
     precoFinal,
@@ -567,8 +577,7 @@ async function salvarCompra(evento) {
   try {
     const resultado = await ponte().comprar(estado.desejoCompraId, dados);
     if (!resultado.ok) {
-      elementosLoja.avisoFormularioCompra.textContent =
-        resultado.mensagem ?? 'Não foi possível registrar a compra.';
+      __pulsoUI.avisar(elementosLoja.avisoFormularioCompra, resultado.mensagem ?? 'Não foi possível registrar a compra.', 'erro');
       return;
     }
     renderizarDetalhe(resultado.desejo);
@@ -576,7 +585,7 @@ async function salvarCompra(evento) {
     carregarResumo();
     carregarDesejos();
   } catch (erro) {
-    elementosLoja.avisoFormularioCompra.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoFormularioCompra, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao registrar compra — ${erro.message}`, erro);
   }
 }
@@ -587,14 +596,13 @@ async function carregarHistorico() {
   try {
     const resultado = await ponte().historico(jogador.id);
     if (!resultado.ok) {
-      elementosLoja.avisoLojaHistorico.textContent =
-        resultado.mensagem ?? 'Não foi possível carregar o histórico.';
+      __pulsoUI.avisar(elementosLoja.avisoLojaHistorico, resultado.mensagem ?? 'Não foi possível carregar o histórico.', 'erro');
       return;
     }
     renderizarHistorico(resultado.compras ?? []);
     exibirVisaoLoja('visao-loja-historico');
   } catch (erro) {
-    elementosLoja.avisoLojaHistorico.textContent = 'Falha de comunicação com o núcleo.';
+    __pulsoUI.avisar(elementosLoja.avisoLojaHistorico, 'Falha de comunicação com o núcleo.', 'erro');
     console.error(`PULSO: falha ao carregar histórico — ${erro.message}`, erro);
   }
 }
@@ -602,10 +610,12 @@ async function carregarHistorico() {
 function renderizarHistorico(compras) {
   elementosLoja.listaCompras.replaceChildren();
   if (compras.length === 0) {
-    const vazio = document.createElement('p');
-    vazio.className = 'missoes-vazio';
-    vazio.textContent = 'Nenhuma compra registrada ainda.';
-    elementosLoja.listaCompras.append(vazio);
+    elementosLoja.listaCompras.append(
+      __pulsoUI.estadoVazio(
+        'NENHUMA COMPRA REGISTRADA',
+        'Registre a compra de um desejo para acompanhar o valor pago.',
+      ),
+    );
     return;
   }
   for (const compra of compras) {
