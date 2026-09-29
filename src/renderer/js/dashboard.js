@@ -309,7 +309,7 @@ function exibirDashboard() {
     if (el) el.classList.add('oculto');
   }
   elementosDashboard.visao.classList.remove('oculto');
-  elementosDashboard.aviso.textContent = '';
+  __pulsoUI.limparAviso(elementosDashboard.aviso);
   carregarVisaoDashboard();
 }
 
@@ -324,25 +324,25 @@ function voltarAoBoot() {
 async function carregarVisaoDashboard() {
   const jogador = window.__pulsoJogadorAtual ?? null;
   if (!jogador) {
-    elementosDashboard.aviso.textContent = 'Nenhum jogador identificado.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'Nenhum jogador identificado.', 'erro');
     return;
   }
   const ponte = window.pulso?.dashboard;
   if (!ponte?.visao) {
-    elementosDashboard.aviso.textContent = 'A ponte do dashboard não está disponível.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'A ponte do dashboard não está disponível.', 'erro');
     return;
   }
   try {
     const resultado = await ponte.visao({ anoMes: periodoAnoMes });
     if (!resultado.ok) {
-      elementosDashboard.aviso.textContent = resultado.mensagem ?? 'Não foi possível carregar o dashboard.';
+      __pulsoUI.avisar(elementosDashboard.aviso, resultado.mensagem ?? 'Não foi possível carregar o dashboard.', 'erro');
       return;
     }
     renderizarTudoDashboard(resultado.visao);
-    elementosDashboard.aviso.textContent = '';
+    __pulsoUI.limparAviso(elementosDashboard.aviso);
   } catch (erro) {
     console.error(`PULSO: falha ao carregar o dashboard — ${erro.message}`, erro);
-    elementosDashboard.aviso.textContent = 'Falha interna ao carregar o dashboard.';
+    __pulsoUI.avisar(elementosDashboard.aviso, 'Falha interna ao carregar o dashboard.', 'erro');
   }
 }
 

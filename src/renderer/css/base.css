@@ -121,7 +121,8 @@ body {
   border-color: var(--pulso-vermelho-claro);
 }
 
-/* Números alinhados em colunas (saldo, XP, valores). */
+/* Números alinhados em colunas (saldo, XP, valores) — usado pelas telas
+   financeiras. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }

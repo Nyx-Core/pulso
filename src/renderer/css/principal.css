@@ -1346,6 +1346,7 @@
   letter-spacing: 0.1em;
   color: var(--pulso-cinza);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
 .dash-progresso-item {

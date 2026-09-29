@@ -184,7 +184,7 @@ async function carregarResumo() {
   try {
     const resultado = await ponteServico().listar(jogador.id);
     if (!resultado.ok) {
-      elementosServico.avisoServicos.textContent = resultado.mensagem ?? "Não foi possível carregar o resumo.";
+      __pulsoUI.avisar(elementosServico.avisoServicos, resultado.mensagem ?? "Não foi possível carregar o resumo.", 'erro');
       return;
     }
     const todos = resultado.servicos ?? [];
@@ -210,10 +210,10 @@ async function carregarServicos() {
       categoria: estadoServico.filtroCategoria || null,
     });
     if (!resultado.ok) {
-      elementosServico.avisoServicos.textContent = resultado.mensagem ?? "Não foi possível carregar os serviços.";
+      __pulsoUI.avisar(elementosServico.avisoServicos, resultado.mensagem ?? "Não foi possível carregar os serviços.", 'erro');
       return;
     }
-    elementosServico.avisoServicos.textContent = "";
+    __pulsoUI.limparAviso(elementosServico.avisoServicos);
     estadoServico.servicos = resultado.servicos ?? [];
     renderizarServicos();
   } catch (erro) {
@@ -273,7 +273,7 @@ async function visualizarServico(id) {
   try {
     const resultado = await ponteServico().obter(id);
     if (!resultado.ok) {
-      elementosServico.avisoServicos.textContent = resultado.mensagem ?? "Não foi possível abrir o serviço.";
+      __pulsoUI.avisar(elementosServico.avisoServicos, resultado.mensagem ?? "Não foi possível abrir o serviço.", 'erro');
       return;
     }
     renderizarDetalhe(resultado.servico);
@@ -298,7 +298,7 @@ function renderizarDetalhe(servico) {
     elementosServico.detalheArquivado.textContent = formatarDataSimplesServico(servico.arquivadoEm);
   }
   elementosServico.detalheDescricao.textContent = servico.descricao || "";
-  elementosServico.avisoServicoDetalhe.textContent = "";
+  __pulsoUI.limparAviso(elementosServico.avisoServicoDetalhe);
   montarAcoesDetalhe(servico);
 }
 
@@ -396,7 +396,7 @@ async function acaoEstadoServico(acao, id) {
       desativar: "Serviço desativado.",
       arquivar: "Serviço arquivado.",
     };
-    elementosServico.avisoServicoDetalhe.textContent = rotulosAcao[acao] ?? "Operação concluída.";
+    __pulsoUI.avisar(elementosServico.avisoServicoDetalhe, rotulosAcao[acao] ?? "Operação concluída.", "sucesso");
   } catch (erro) {
     console.error(`PULSO: falha ao executar ${acao} no serviço ${id} — ${erro.message}`, erro);
   }
@@ -419,7 +419,7 @@ function exibirFormularioServico(servico = null) {
     ? formatarCentavosParaEntradaServico(servico.valorEsperado)
     : "";
   elementosServico.campoDescricao.value = servico?.descricao ?? "";
-  elementosServico.avisoFormulario.textContent = "";
+  __pulsoUI.limparAviso(elementosServico.avisoFormulario);
   exibirVisaoServico("visao-formulario-servico");
   elementosServico.campoNome.focus();
 }
@@ -428,7 +428,7 @@ async function salvarServico(evento) {
   evento.preventDefault();
   const jogador = jogadorAtualServico();
   if (!jogador) {
-    elementosServico.avisoFormulario.textContent = "Nenhum jogador identificado.";
+    __pulsoUI.avisar(elementosServico.avisoFormulario, "Nenhum jogador identificado.", 'erro');
     return;
   }
   const valorCentavos = lerCentavosServico(elementosServico.campoValor.value);
@@ -444,19 +444,19 @@ async function salvarServico(evento) {
       ? await ponteServico().atualizar({ id: estadoServico.servicoAtualId, ...dados })
       : await ponteServico().criar({ jogadorId: jogador.id, ...dados });
     if (!resultado.ok) {
-      elementosServico.avisoFormulario.textContent = resultado.mensagem ?? "Não foi possível salvar o serviço.";
+      __pulsoUI.avisar(elementosServico.avisoFormulario, resultado.mensagem ?? "Não foi possível salvar o serviço.", 'erro');
       return;
     }
     exibirVisaoServico("visao-servicos");
     carregarResumo();
     carregarServicos();
     // Feedback de sucesso (Fase 10.6 — consistência entre módulos).
-    elementosServico.avisoServicos.textContent = estadoServico.modoEdicaoServico
+    __pulsoUI.avisar(elementosServico.avisoServicos, estadoServico.modoEdicaoServico
       ? "Serviço atualizado com sucesso."
-      : "Serviço registrado com sucesso.";
+      : "Serviço registrado com sucesso.", "sucesso");
   } catch (erro) {
     console.error(`PULSO: falha ao salvar o serviço — ${erro.message}`, erro);
-    elementosServico.avisoFormulario.textContent = "Falha interna ao salvar o serviço.";
+    __pulsoUI.avisar(elementosServico.avisoFormulario, "Falha interna ao salvar o serviço.", 'erro');
   }
 }
 

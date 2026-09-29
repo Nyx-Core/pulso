@@ -221,8 +221,7 @@ async function carregarServicosDisponiveisRecorrencia() {
   try {
     const resultado = await ponteServicoRecorrencia().listar(jogador.id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrencias.textContent =
-        resultado.mensagem ?? "Não foi possível carregar os serviços.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrencias, resultado.mensagem ?? "Não foi possível carregar os serviços.", 'erro');
       return;
     }
     estadoRecorrencia.servicos = resultado.servicos ?? [];
@@ -267,8 +266,7 @@ async function carregarResumoRecorrencias() {
   try {
     const resultado = await ponteRecorrencia().listar(jogador.id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrencias.textContent =
-        resultado.mensagem ?? "Não foi possível carregar o resumo.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrencias, resultado.mensagem ?? "Não foi possível carregar o resumo.", 'erro');
       return;
     }
     const todas = resultado.recorrencias ?? [];
@@ -294,11 +292,10 @@ async function carregarRecorrencias() {
       servicoId: estadoRecorrencia.filtroServico ? Number(estadoRecorrencia.filtroServico) : null,
     });
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrencias.textContent =
-        resultado.mensagem ?? "Não foi possível carregar as recorrências.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrencias, resultado.mensagem ?? "Não foi possível carregar as recorrências.", 'erro');
       return;
     }
-    elementosRecorrencia.avisoRecorrencias.textContent = "";
+    __pulsoUI.limparAviso(elementosRecorrencia.avisoRecorrencias);
     estadoRecorrencia.recorrencias = resultado.recorrencias ?? [];
     renderizarRecorrencias();
   } catch (erro) {
@@ -360,8 +357,7 @@ async function visualizarRecorrencia(id) {
   try {
     const resultado = await ponteRecorrencia().obter(id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrencias.textContent =
-        resultado.mensagem ?? "Não foi possível abrir a recorrência.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrencias, resultado.mensagem ?? "Não foi possível abrir a recorrência.", 'erro');
       return;
     }
     renderizarDetalheRecorrencia(resultado.recorrencia);
@@ -392,14 +388,14 @@ function renderizarDetalheRecorrencia(recorrencia) {
   if (arquivada) elementosRecorrencia.detalheArquivada.textContent =
     formatarDataSimplesRecorrencia(recorrencia.arquivadoEm);
   elementosRecorrencia.detalheDescricao.textContent = recorrencia.descricao || "";
-  elementosRecorrencia.avisoRecorrenciaDetalhe.textContent = "";
+  __pulsoUI.limparAviso(elementosRecorrencia.avisoRecorrenciaDetalhe);
   // Geração (Fase 10.4): disponível apenas para regras ATIVAS — inativa está
   // pausada e arquivada está encerrada. Cada detalhe recomeça limpo.
   const podeGerar = recorrencia.estado === "ativa";
   elementosRecorrencia.secaoGerarOcorrencias.classList.toggle("oculto", !podeGerar);
   elementosRecorrencia.campoGerarInicio.value = "";
   elementosRecorrencia.campoGerarFim.value = "";
-  elementosRecorrencia.avisoGeracao.textContent = "";
+  __pulsoUI.limparAviso(elementosRecorrencia.avisoGeracao);
   elementosRecorrencia.resultadoGeracao.classList.add("oculto");
   elementosRecorrencia.botaoGeracaoVerContas.classList.add("oculto");
   montarAcoesDetalheRecorrencia(recorrencia);
@@ -488,13 +484,12 @@ async function acaoAtivarRecorrencia(id) {
   try {
     const resultado = await ponteRecorrencia().ativar(id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-        resultado.mensagem ?? "Não foi possível reativar a recorrência.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, resultado.mensagem ?? "Não foi possível reativar a recorrência.", 'erro');
       return;
     }
     renderizarDetalheRecorrencia(resultado.recorrencia);
     carregarResumoRecorrencias();
-    elementosRecorrencia.avisoRecorrenciaDetalhe.textContent = "Recorrência reativada.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, "Recorrência reativada.", 'sucesso');
   } catch (erro) {
     console.error(`PULSO: falha ao reativar a recorrência ${id} — ${erro.message}`, erro);
   }
@@ -504,14 +499,12 @@ async function acaoDesativarRecorrencia(id) {
   try {
     const resultado = await ponteRecorrencia().desativar(id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-        resultado.mensagem ?? "Não foi possível desativar a recorrência.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, resultado.mensagem ?? "Não foi possível desativar a recorrência.", 'erro');
       return;
     }
     renderizarDetalheRecorrencia(resultado.recorrencia);
     carregarResumoRecorrencias();
-    elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-      "Recorrência desativada — não gera novas ocorrências até ser reativada.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, "Recorrência desativada — não gera novas ocorrências até ser reativada.", 'sucesso');
   } catch (erro) {
     console.error(`PULSO: falha ao desativar a recorrência ${id} — ${erro.message}`, erro);
   }
@@ -521,14 +514,12 @@ async function acaoArquivarRecorrencia(id) {
   try {
     const resultado = await ponteRecorrencia().arquivar(id);
     if (!resultado.ok) {
-      elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-        resultado.mensagem ?? "Não foi possível arquivar a recorrência.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, resultado.mensagem ?? "Não foi possível arquivar a recorrência.", 'erro');
       return;
     }
     renderizarDetalheRecorrencia(resultado.recorrencia);
     carregarResumoRecorrencias();
-    elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-      "Recorrência arquivada — estado terminal, sem geração de ocorrências.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, "Recorrência arquivada — estado terminal, sem geração de ocorrências.", 'sucesso');
   } catch (erro) {
     console.error(`PULSO: falha ao arquivar a recorrência ${id} — ${erro.message}`, erro);
   }
@@ -545,13 +536,11 @@ async function acaoGerarOcorrencias(evento) {
   const periodoInicio = elementosRecorrencia.campoGerarInicio.value;
   const periodoFim = elementosRecorrencia.campoGerarFim.value;
   if (!periodoInicio || !periodoFim) {
-    elementosRecorrencia.avisoGeracao.textContent =
-      "Informe o início e o fim do período da geração.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoGeracao, "Informe o início e o fim do período da geração.", 'erro');
     return;
   }
   if (periodoFim < periodoInicio) {
-    elementosRecorrencia.avisoGeracao.textContent =
-      "O fim do período não pode ser anterior ao início.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoGeracao, "O fim do período não pode ser anterior ao início.", 'erro');
     return;
   }
   try {
@@ -560,8 +549,7 @@ async function acaoGerarOcorrencias(evento) {
       periodoFim,
     });
     if (!resultado.ok) {
-      elementosRecorrencia.avisoGeracao.textContent =
-        resultado.mensagem ?? "Não foi possível gerar as ocorrências.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoGeracao, resultado.mensagem ?? "Não foi possível gerar as ocorrências.", 'erro');
       return;
     }
     const { encontradas, criadas, existentes } = resultado.geracao;
@@ -569,24 +557,19 @@ async function acaoGerarOcorrencias(evento) {
     elementosRecorrencia.geracaoCriadas.textContent = String(criadas);
     elementosRecorrencia.geracaoExistentes.textContent = String(existentes);
     elementosRecorrencia.resultadoGeracao.classList.remove("oculto");
-    elementosRecorrencia.avisoGeracao.textContent =
-      criadas === 0 && existentes > 0
-        ? "Nenhuma conta nova: as ocorrências deste período já haviam sido geradas."
-        : "";
+    __pulsoUI.avisar(elementosRecorrencia.avisoGeracao, criadas === 0 && existentes > 0 ? "Nenhuma conta nova: as ocorrências deste período já haviam sido geradas." : "", 'sucesso');
     // Navegação cruzada (Fase 10.6): revisar as contas deste serviço.
     elementosRecorrencia.botaoGeracaoVerContas.classList.remove("oculto");
     // Feedback de sucesso (Fase 10.6) — geração não movimenta dinheiro.
     if (criadas > 0) {
-      elementosRecorrencia.avisoRecorrenciaDetalhe.textContent =
-        `Geração concluída: ${criadas} ${criadas === 1 ? "conta criada" : "contas criadas"} — nenhuma movimentação financeira.`;
+      __pulsoUI.avisar(elementosRecorrencia.avisoRecorrenciaDetalhe, `Geração concluída: ${criadas} ${criadas === 1 ? "conta criada" : "contas criadas"} — nenhuma movimentação financeira.`, 'sucesso');
     }
   } catch (erro) {
     console.error(
       `PULSO: falha ao gerar ocorrências da recorrência ${recorrenciaId} — ${erro.message}`,
       erro,
     );
-    elementosRecorrencia.avisoGeracao.textContent =
-      "Falha interna ao gerar as ocorrências.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoGeracao, "Falha interna ao gerar as ocorrências.", 'erro');
   }
 }
 
@@ -616,7 +599,7 @@ function exibirFormularioRecorrencia(recorrencia = null) {
     elementosRecorrencia.campoDescricao.value = "";
   }
   elementosRecorrencia.campoServico.disabled = estadoRecorrencia.modoEdicaoRecorrencia;
-  elementosRecorrencia.avisoFormulario.textContent = "";
+  __pulsoUI.limparAviso(elementosRecorrencia.avisoFormulario);
   exibirVisaoRecorrencia("visao-formulario-recorrencia");
   if (!estadoRecorrencia.modoEdicaoRecorrencia) elementosRecorrencia.campoFrequencia.focus();
 }
@@ -625,7 +608,7 @@ async function salvarRecorrencia(evento) {
   evento.preventDefault();
   const jogador = jogadorAtualRecorrencia();
   if (!jogador) {
-    elementosRecorrencia.avisoFormulario.textContent = "Nenhum jogador identificado.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoFormulario, "Nenhum jogador identificado.", 'erro');
     return;
   }
   const valorCentavos = lerCentavosRecorrencia(elementosRecorrencia.campoValor.value);
@@ -647,20 +630,19 @@ async function salvarRecorrencia(evento) {
           ...dados,
         });
     if (!resultado.ok) {
-      elementosRecorrencia.avisoFormulario.textContent =
-        resultado.mensagem ?? "Não foi possível salvar a recorrência.";
+      __pulsoUI.avisar(elementosRecorrencia.avisoFormulario, resultado.mensagem ?? "Não foi possível salvar a recorrência.", 'erro');
       return;
     }
     exibirVisaoRecorrencia("visao-recorrencias");
     carregarResumoRecorrencias();
     carregarRecorrencias();
     // Feedback de sucesso (Fase 10.6 — consistência entre módulos).
-    elementosRecorrencia.avisoRecorrencias.textContent = estadoRecorrencia.modoEdicaoRecorrencia
+    __pulsoUI.avisar(elementosRecorrencia.avisoRecorrencias, estadoRecorrencia.modoEdicaoRecorrencia
       ? "Recorrência atualizada com sucesso."
-      : "Recorrência registrada com sucesso — nenhuma conta foi gerada ainda.";
+      : "Recorrência registrada com sucesso — nenhuma conta foi gerada ainda.", "sucesso");
   } catch (erro) {
     console.error(`PULSO: falha ao salvar a recorrência — ${erro.message}`, erro);
-    elementosRecorrencia.avisoFormulario.textContent = "Falha interna ao salvar a recorrência.";
+    __pulsoUI.avisar(elementosRecorrencia.avisoFormulario, "Falha interna ao salvar a recorrência.", 'erro');
   }
 }
 

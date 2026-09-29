@@ -236,7 +236,7 @@ async function carregarServicosDisponiveisConta() {
   try {
     const resultado = await ponteServicoConta().listar(jogador.id);
     if (!resultado.ok) {
-      elementosConta.avisoContas.textContent = resultado.mensagem ?? "Não foi possível carregar os serviços.";
+      __pulsoUI.avisar(elementosConta.avisoContas, resultado.mensagem ?? "Não foi possível carregar os serviços.", 'erro');
       return;
     }
     estadoConta.servicos = resultado.servicos ?? [];
@@ -281,7 +281,7 @@ async function carregarResumoContas() {
   try {
     const resultado = await ponteConta().listar(jogador.id);
     if (!resultado.ok) {
-      elementosConta.avisoContas.textContent = resultado.mensagem ?? "Não foi possível carregar o resumo.";
+      __pulsoUI.avisar(elementosConta.avisoContas, resultado.mensagem ?? "Não foi possível carregar o resumo.", 'erro');
       return;
     }
     const todas = resultado.contas ?? [];
@@ -309,10 +309,10 @@ async function carregarContas() {
       servicoId: estadoConta.filtroServico ? Number(estadoConta.filtroServico) : null,
     });
     if (!resultado.ok) {
-      elementosConta.avisoContas.textContent = resultado.mensagem ?? "Não foi possível carregar as contas.";
+      __pulsoUI.avisar(elementosConta.avisoContas, resultado.mensagem ?? "Não foi possível carregar as contas.", 'erro');
       return;
     }
-    elementosConta.avisoContas.textContent = "";
+    __pulsoUI.limparAviso(elementosConta.avisoContas);
     estadoConta.contas = resultado.contas ?? [];
     renderizarContas();
   } catch (erro) {
@@ -375,7 +375,7 @@ async function visualizarConta(id) {
   try {
     const resultado = await ponteConta().obter(id);
     if (!resultado.ok) {
-      elementosConta.avisoContas.textContent = resultado.mensagem ?? "Não foi possível abrir a conta.";
+      __pulsoUI.avisar(elementosConta.avisoContas, resultado.mensagem ?? "Não foi possível abrir a conta.", 'erro');
       return;
     }
     renderizarDetalheConta(resultado.conta);
@@ -415,7 +415,7 @@ function renderizarDetalheConta(conta) {
       : "—";
   }
   elementosConta.detalheDescricao.textContent = conta.descricao || "";
-  elementosConta.avisoContaDetalhe.textContent = "";
+  __pulsoUI.limparAviso(elementosConta.avisoContaDetalhe);
   montarAcoesDetalheConta(conta);
 }
 
@@ -476,7 +476,7 @@ function montarAcoesDetalheConta(conta) {
 async function acaoPagamentoConta(id) {
   const jogador = jogadorAtualConta();
   if (!jogador) {
-    elementosConta.avisoFormularioPagamento.textContent = "Nenhum jogador identificado.";
+    __pulsoUI.avisar(elementosConta.avisoFormularioPagamento, "Nenhum jogador identificado.", 'erro');
     return;
   }
   try {
@@ -490,11 +490,11 @@ async function acaoPagamentoConta(id) {
     // sessão (Fase 10.6: correção da integração renderer → preload → main).
     const resultado = await ponteConta().pagar(jogador.id, id, dados);
     if (!resultado.ok) {
-      elementosConta.avisoFormularioPagamento.textContent = resultado.mensagem ?? "Não foi possível registrar o pagamento.";
+      __pulsoUI.avisar(elementosConta.avisoFormularioPagamento, resultado.mensagem ?? "Não foi possível registrar o pagamento.", 'erro');
       return;
     }
     // Esconde o formulário e exibe o resultado do pagamento (Fase 10.5).
-    elementosConta.avisoFormularioPagamento.textContent = "";
+    __pulsoUI.limparAviso(elementosConta.avisoFormularioPagamento);
     elementosConta.visaoFormularioPagamentoConta.classList.add("oculto");
     // Exibir resultado
     elementosConta.pagamentoResultadoStatus.textContent = "PAGA";
@@ -514,11 +514,10 @@ async function acaoPagamentoConta(id) {
     renderizarDetalheConta(resultado.conta);
     carregarResumoContas();
     carregarContas();
-    elementosConta.avisoContaDetalhe.textContent =
-      "Pagamento registrado: despesa criada e carteira atualizada.";
+    __pulsoUI.avisar(elementosConta.avisoContaDetalhe, "Pagamento registrado: despesa criada e carteira atualizada.", 'sucesso');
   } catch (erro) {
     console.error(`PULSO: falha ao registrar pagamento da conta ${id} — ${erro.message}`, erro);
-    elementosConta.avisoFormularioPagamento.textContent = "Falha interna ao registrar pagamento.";
+    __pulsoUI.avisar(elementosConta.avisoFormularioPagamento, "Falha interna ao registrar pagamento.", 'erro');
   }
 }
 
@@ -532,7 +531,7 @@ function exibirFormularioPagamentoConta(conta) {
   elementosConta.campoPagamentoValor.value = formatarCentavosParaEntradaConta(conta.valorEsperado);
   elementosConta.campoPagamentoData.value = conta.vencimento;
   elementosConta.campoPagamentoObservacao.value = "";
-  elementosConta.avisoFormularioPagamento.textContent = "";
+  __pulsoUI.limparAviso(elementosConta.avisoFormularioPagamento);
   // Preencher detalhes da conta no formulário
   elementosConta.pagamentoDetalheConta.textContent = `ID ${conta.id}`;
   elementosConta.pagamentoDetalheServico.textContent = nomeServico(conta.servicoId);
@@ -555,14 +554,13 @@ async function acaoCancelarConta(id) {
   try {
     const resultado = await ponteConta().cancelar(id);
     if (!resultado.ok) {
-      elementosConta.avisoContaDetalhe.textContent = resultado.mensagem ?? "Não foi possível cancelar a conta.";
+      __pulsoUI.avisar(elementosConta.avisoContaDetalhe, resultado.mensagem ?? "Não foi possível cancelar a conta.", 'erro');
       return;
     }
     renderizarDetalheConta(resultado.conta);
     carregarResumoContas();
     // Feedback de sucesso (Fase 10.6 — consistência entre módulos).
-    elementosConta.avisoContaDetalhe.textContent =
-      "Conta cancelada — nenhuma movimentação financeira foi feita.";
+    __pulsoUI.avisar(elementosConta.avisoContaDetalhe, "Conta cancelada — nenhuma movimentação financeira foi feita.", 'sucesso');
   } catch (erro) {
     console.error(`PULSO: falha ao cancelar a conta ${id} — ${erro.message}`, erro);
   }
@@ -580,7 +578,7 @@ function exibirFormularioConta(conta = null) {
   elementosConta.campoVencimento.value = conta?.vencimento ?? "";
   elementosConta.campoValor.value = conta ? formatarCentavosParaEntradaConta(conta.valorEsperado) : "";
   elementosConta.campoDescricao.value = conta?.descricao ?? "";
-  elementosConta.avisoFormulario.textContent = "";
+  __pulsoUI.limparAviso(elementosConta.avisoFormulario);
   exibirVisaoConta("visao-formulario-conta");
   elementosConta.campoReferencia.focus();
 }
@@ -589,7 +587,7 @@ async function salvarConta(evento) {
   evento.preventDefault();
   const jogador = jogadorAtualConta();
   if (!jogador) {
-    elementosConta.avisoFormulario.textContent = "Nenhum jogador identificado.";
+    __pulsoUI.avisar(elementosConta.avisoFormulario, "Nenhum jogador identificado.", 'erro');
     return;
   }
   const valorCentavos = lerCentavosConta(elementosConta.campoValor.value);
@@ -608,19 +606,19 @@ async function salvarConta(evento) {
           ...dados,
         });
     if (!resultado.ok) {
-      elementosConta.avisoFormulario.textContent = resultado.mensagem ?? "Não foi possível salvar a conta.";
+      __pulsoUI.avisar(elementosConta.avisoFormulario, resultado.mensagem ?? "Não foi possível salvar a conta.", 'erro');
       return;
     }
     exibirVisaoConta("visao-contas");
     carregarResumoContas();
     carregarContas();
     // Feedback de sucesso (Fase 10.6 — consistência entre módulos).
-    elementosConta.avisoContas.textContent = estadoConta.modoEdicaoConta
+    __pulsoUI.avisar(elementosConta.avisoContas, estadoConta.modoEdicaoConta
       ? "Conta atualizada com sucesso."
-      : "Conta registrada com sucesso — nenhuma movimentação financeira foi feita.";
+      : "Conta registrada com sucesso — nenhuma movimentação financeira foi feita.", "sucesso");
   } catch (erro) {
     console.error(`PULSO: falha ao salvar a conta — ${erro.message}`, erro);
-    elementosConta.avisoFormulario.textContent = "Falha interna ao salvar a conta.";
+    __pulsoUI.avisar(elementosConta.avisoFormulario, "Falha interna ao salvar a conta.", 'erro');
   }
 }
 
