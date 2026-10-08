@@ -352,3 +352,118 @@ de novo.
 - **Não criar testes de funcionalidades que ainda não existem.**
 - Cobertura de código: meta a definir na Fase 17 (o runner nativo oferece `--experimental-test-coverage` quando necessário).
 - `npm test` deve sempre terminar sem erros em `dev`.
+
+## 8. Testes de portabilidade (Fase 18)
+
+A Fase 18 é uma **fase de infraestrutura de distribuição**, não de domínio.
+Os testes estão distribuídos em três níveis:
+
+### 8.1 Unidade — `tests/unidade/portabilidade.test.mjs` (8 testes)
+
+Cobre `src/main/portabilidade.js` (módulo puro, sem Electron), dentro da
+suíte normal (`npm test`):
+
+- **`PULSO_DIRETORIO_DADOS` tem precedência absoluta** — se definido, é o
+  diretório, ignorando marcador e perfil do usuário.
+- **Modo portátil por variável** — `PULSO_PORTABLE=1` (parâmetro `portavel`
+  ou a própria variável de ambiente) leva a `<raiz>/data` mesmo sem
+  marcador no disco (raiz = diretório de trabalho atual).
+- **Modo portátil por marcador** — `pulso-portatil.json` acima do
+  executável ativa o modo portátil e resolve `<raiz>/data`; a raiz é
+  exposta em `raizPacote` (usada pelo `main.js` para achar `runtime/`).
+- **Padrão do sistema** — sem variável e sem marcador, o diretório fica em
+  `<appData>/pulso` (o perfil do usuário), o modo **não** é portátil e
+  `raizPacote` é `''`.
+- **Marcador ausente não engana** — `localizarRaizPacote` devolve string
+  vazia quando não há marcador, evitando detecção portátil falsa.
+
+### 8.2 Ciclo de vida (validação manual executada nesta fase)
+
+Procedimento reproduzível (Linux — **VALIDADO** nesta fase):
+
+```bash
+# Etapas 1–3: executar, criar dados e fechar — sobre o pacote recém-montado
+npm run build:portable
+PULSO_PORTABLE=1 out/pack/PULSO-0.1.0-portatil/Linux/PULSO --teste-fumaca
+# → Dados do usuário: <pacote>/data (portátil: sim — motivo: ambiente)
+# → Banco de dados criado (schema v15, 15 migração(ões) nesta execução)
+# → PULSO_FUMACA:{"ok":true,...} → jogador "Operador Teste", missão,
+#   transação R$ 123,45 e serviço criados no banco portátil
+# → data/pulso.db criado; runtime/ populado com os caches do Electron
+
+# Etapa 4: mover o pacote
+cp -r out/pack/PULSO-0.1.0-portatil /tmp/pulso-pendrive
+
+# Etapa 5: executar novamente — o APP REAL, sem variável (detecção por marcador)
+/tmp/pulso-pendrive/Linux/PULSO &
+# → Dados do usuário: /tmp/pulso-pendrive/data (portátil: sim — motivo: marcador)
+# → Banco de dados reutilizado (schema v15, 0 migração(ões) nesta execução)
+
+# Etapa 6: conferir os dados com leitura somente-leitura do SQLite
+# → jogador: Operador Teste | missão: Missão do teste de fumaça
+# → transacao: receita 12345 centavos "Receita do teste de fumaça"
+# → servico: Servico do teste de fumaca | schema_migrations: 15
+# → PRAGMA integrity_check = ok
+
+# Etapa 7: perfil do sistema operacional intacto
+stat -c '%Y' ~/.config/pulso   # mtime idêntico antes e depois das execuções
+```
+
+Notas do procedimento:
+
+- a fumaça usa `PULSO_PORTABLE=1` de propósito: é a única forma de ela
+  escrever **no pacote** (por padrão ela isola o banco em diretório
+  temporário para nunca tocar no banco real);
+- a fumaça exige banco virgem (`preparado` = "não havia jogador"); com
+  dados já existentes ela reporta `ok:false` por contrato — por isso a
+  **etapa 5 usa o aplicativo real**, que é exatamente o fluxo do usuário;
+- a etapa 5 valida o ramo de produção portátil (`userData = <raiz>/runtime`,
+  banco = `<raiz>/data`), o mesmo ramo que um pendrive usaria.
+
+O que este ciclo afirma:
+
+| Etapa (pendrive) | Verificação | Status |
+| --- | --- | --- |
+| 1. Executar | app inicia, DB é criado em `<pacote>/data/` | 🟢 VALIDADO |
+| 2. Criar dados | fumaça cria jogador/missão/transação/serviço no DB portátil | 🟢 VALIDADO |
+| 3. Fechar | encerra com código 0 (`ok:true`) | 🟢 VALIDADO |
+| 4. Mover o pacote | `cp -r` para outro caminho | 🟢 VALIDADO |
+| 5. Executar novamente | `Banco de dados reutilizado (schema v15, 0 migrações)`, motivo `marcador` | 🟢 VALIDADO |
+| 6. Dados permanecem | mesmos registros no SQLite movido + `integrity_check = ok` | 🟢 VALIDADO |
+| 7. Não grava no perfil do SO | mtime de `~/.config/pulso` inalterado; `data/` contém só o banco | 🟢 VALIDADO |
+
+**Pacotes gerados (além do pacote fonte):**
+
+| Verificação | `build:linux` (tar.gz) | `build:windows` (zip) |
+| --- | --- | --- |
+| Launcher do pacote | 🟢 `./iniciar/iniciar-linux.sh --teste-fumaca` → `PULSO_FUMACA ok:true` | 🟢 `wine cmd /c iniciar\iniciar-windows.bat --teste-fumaca` → `ok:true` |
+| Aplicativo real | 🟢 motivo `marcador`; `data/pulso.db` + `runtime/` no pacote; perfil `~/.config/pulso` intacto | 🟢 sob Wine: motivo `marcador`; `Z:\…\data\pulso.db` + `runtime/` no pacote |
+| Banco compartilhado Linux ↔ Windows | 🟢 banco criado no Linux | 🟢 `.exe` abriu o banco do Linux: `reutilizado (schema v15, 0 migrações)` |
+| Execução em Windows real | — | 🔴 pendente (P-036) |
+
+### 8.3 Migração de banco existente
+
+- `tests/unidade/migracoes.test.mjs` (existente) afirma a cadeia completa de
+  15 migrações até o schema v15.
+- Execução do pacote portátil sobre banco existente confirmou
+  `reutilizado (schema v15, 0 migrações)` — ou seja, **a migração não
+  recria nem apaga o banco do usuário**.
+
+### 8.4 O que NÃO foi validado aqui
+
+- **Windows real**: a **build** (`build:windows`, executada no Ubuntu com o
+  runtime win32 extraído do cache do Electron) e a **execução** foram
+  validadas **sob Wine 10** — fumaça `ok:true`, launcher `.bat`, aplicativo
+  real gravando `data/` + `runtime/` no pacote e banco do Linux reutilizado
+  (`schema v15, 0 migrações`). Falta executar em **máquina Windows real**
+  (P-036). Ver `docs/portabilidade.md` §9.
+- **AppImage**: requer `appimagetool`/`linuxdeployqt` (não presentes);
+  a distribuição Linux desta fase é o tar.gz portátil.
+
+### 8.5 Comandos rápidos
+
+```bash
+npm test                                          # suíte completa (unidade+integração) — 553 testes
+npm run build:portable                            # monta o pacote portátil
+npm run build:linux                               # gera dist/…-linux-portatil.tar.gz
+```

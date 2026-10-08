@@ -9,7 +9,6 @@ Registro de necessidades identificadas durante as fases que **serão resolvidas 
 | P-003 | Adicionar ESLint/Prettier (qualidade de código) | fase adequada | manter camadas sem dependências além do Electron |
 | P-005 | Instalar CLI `sqlite3` (opcional) | quando útil | `sudo apt install sqlite3` — inspeção manual (banco atual: SQLite 3.50.4) |
 | P-006 | Definir ferramenta de e2e (ex.: Playwright) | 17 — Testes e Estabilização | para automatizar a janela além do teste de fumaça |
-| P-007 | Definir ferramenta de empacotamento (electron-builder/forge) | 18 — Portabilidade | pacotes Linux, Windows e pendrive, separados |
 | P-008 | Avaliar atualização do Node do sistema para 22 LTS | 02 — Banco de Dados | sistema usa Node 20.20.2; o Electron 37 embute Node 22.21.1 |
 | P-009 | Definir licença do projeto | quando o usuário decidir | `package.json` usa `UNLICENSED` até lá |
 | P-010 | Publicar remote (origin/dev existe) e fluxo de Pull Requests | quando o usuário desejar | hoje: merges locais `--no-ff` documentados |
@@ -38,6 +37,7 @@ Registro de necessidades identificadas durante as fases que **serão resolvidas 
 | P-033 | CHECK de `energia/foco/estresse/criatividade` entre 0 e 100 no banco | fase futura | continua P-021: o domínio valida antes de gravar; o banco aceitaria valor fora da faixa se a escrita viesse de fora do domínio |
 | P-034 | Cobertura de código medida (relatório de linhas cobertas) | fase futura | a Fase 17 ampliou a cobertura por CENÁRIO (o que é verificado), não por LINHA; a meta percentual segue a definir |
 | P-035 | Teste de carga / muitas operações seguidas | fase futura | a Fase 17 verificou operações repetidas e reinicialização, mas não volume alto; o banco é local e de uso pessoal |
+| P-036 | Validar a execução do pacote **Windows** em máquina Windows real | 18 — Portabilidade | **Fase 18:** build (`build:windows` no Ubuntu, via cache win32) e execução validados **sob Wine 10** — fumaça `ok:true`, launcher `.bat`, `data/`+`runtime/` no pacote e banco do Linux reutilizado (`schema v15, 0 migrações`); falta o teste em máquina Windows real (ver `portabilidade.md` §9) |
 
 ## Pendências resolvidas
 
@@ -46,3 +46,4 @@ Registro de necessidades identificadas durante as fases que **serão resolvidas 
 | P-001 | Instalar Electron e criar janela base | Fase 01 — Electron 37.10.3 (ver ADR-008) |
 | P-002 | Definir abordagem de interface (vanilla vs framework) | Fase 01 — vanilla JS (ver ADR-006) |
 | P-004 | Definir driver SQLite (`node:sqlite` vs `better-sqlite3`) | Fase 02 — `node:sqlite` nativo, SQLite 3.50.4 (ver ADR-009) |
+| P-007 | Definir ferramenta de empacotamento (electron-builder/forge) | Fase 18 — script próprio `scripts/build-portable.mjs` sobre o `dist/` do Electron (ver ADR-015) |

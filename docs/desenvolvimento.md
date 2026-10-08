@@ -30,6 +30,10 @@ npm install                      # Fase 00: nenhuma dependência externa
 
 | Comando | O que faz |
 | --- | --- |
+| `npm run build:portable` | Monta o pacote portátil (`out/pack/PULSO-0.1.0-portatil/`) |
+| `npm run build:linux` | Gera o pacote Linux portátil (`dist/PULSO-0.1.0-linux-portatil.tar.gz`) |
+| `npm run build:windows` | Gera o pacote Windows portátil (extrai o runtime win32 do cache do Electron quando roda fora do Windows; execução validada sob Wine) |
+| `npm run build` | Alias de `build:portable` |
 | `npm start` | Inicia a aplicação desktop (janela do PULSO) |
 | `npm test` | Testes unitários + teste de fumaça do Electron (inicia/encerra a app 2×) |
 | `npx electron . --teste-fumaca` | Teste de fumaça direto: valida inicialização e imprime relatório JSON |

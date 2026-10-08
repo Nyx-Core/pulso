@@ -28,10 +28,10 @@ Fases conhecidas do projeto. Nenhuma fase antecipa o conteúdo da seguinte; o de
 | 15 | Dashboard | Painel consolidado definitivo | ✅ Concluída |
 | 16 | Polimento | Refinamento visual e de experiência | ✅ Concluída |
 | 17 | Testes e Estabilização | Cobertura, correções e estabilidade | ✅ Concluída |
-| 18 | Portabilidade | Pacotes separados: Linux, Windows e pendrive | ⬜ Pendente |
+| 18 | Portabilidade | Pacotes separados: Linux, Windows e pendrive | 🟡 Parcial — Linux/pendrive validados; Windows validado sob Wine (falta máquina Windows real — P-036) |
 
 ## Observações
 
-- A **FASE 18** produzirá pacotes **separados** por destino (Linux / Windows / pendrive); as decisões das fases anteriores não podem dificultá-la (ver `arquitetura.md`, seção "Preparação para a portabilidade").
+- A **FASE 18** produz pacotes **separados** por destino (Linux / Windows / pendrive); as decisões das fases anteriores não a dificultaram (ver `arquitetura.md`, seção "Portabilidade" e `portabilidade.md`). O pacote Windows foi **gerado no Ubuntu** (runtime win32 extraído do cache do Electron) e **validado sob Wine 10** (fumaça, launcher .bat, dados e banco compartilhado com o Linux); a execução em **máquina Windows real** permanece pendente (P-036).
 - Integrações externas não fazem parte das fases listadas; se um dia forem necessárias, serão avaliadas e documentadas quando o assunto surgir — o PULSO permanece local-first e offline-first.
 - Pendências transversais identificadas durante as fases ficam registradas em `pendencias.md`.

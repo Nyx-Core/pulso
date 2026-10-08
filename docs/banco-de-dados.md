@@ -27,20 +27,26 @@ O aviso `ExperimentalWarning: SQLite` é inofensivo,e registrado aqui. Se a API 
 
 ##  ̈3. Localização do banco (dinâmica,,nunca no repositório
 
-O processo principal resolve o diretório de dados via Electron:
+O processo principal resolve o diretório de dados em
+`src/main/portabilidade.js` (Fase 18) e só então chama
+`inicializarBanco({ diretorioDados })`:
 
- `app.getPath('appData') + '/pulso'` → `app.setPath('userData', ...)`.
+1. `PULSO_DIRETORIO_DADOS` (variável) → caminho explícito;
+2. modo portátil (`PULSO_PORTABLE=1` ou marcador `pulso-portatil.json` acima
+   do executável) → `<raiz-do-pacote>/data`;
+3. padrão → `app.getPath('appData') + '/pulso'` → `app.setPath('userData', ...)`.
 
 
 
 | Ambiente | Local efetivo(Linux) |
 | --- | --- |
 | Desenvolvimento/produção | `~/.config/pulso/pulso.db` |
+| Modo portátil (pendrive) | `<pacote>/data/pulso.db` (fora do perfil do usuário) |
 | Teste de fumaça | diretório temporário(`/tmp/pulso-fumaca-*`) criado e descartado por execução |
 
 
 
-Em outros sistemas operacionais o caminho acompanha o padrão da plataforma(Fase 18. O núcleo(`src/core/database/`) **nunca** resolve caminhos—recebe o diretório pronto; assim é testável sem Electron. Desde a Fase 03, `PULSO_DIRETORIO_DADOS` permite apontar outro diretório(útil em testes manuais.
+Em outros sistemas operacionais o padrão `appData/pulso` acompanha a plataforma e o modo portátil é idêntico (o pacote é autocontido). O núcleo(`src/core/database/`) **nunca** resolve caminhos—recebe o diretório pronto; assim é testável sem Electron. Desde a Fase 03, `PULSO_DIRETORIO_DADOS` permite apontar outro diretório(útil em testes manuais). Ver `docs/portabilidade.md` para o guia completo.
 
 **Arquivos gerados** (modo WAL): `pulso.db` + `pulso.db-wal` + `pulso.db-shm`. Os três são ignorados pelo Git(`*.db`, `*.db-wal`, `*.db-shm` no `.gitignore`.
 

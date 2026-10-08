@@ -170,14 +170,54 @@ Pontos principais:
 - **Erros identificáveis:** `uncaughtException`/`unhandledRejection` no main (diálogo de erro fora do modo teste), `did-fail-load`, `render-process-gone`, `unresponsive` e erros de console do renderer todos registrados via `registro.js`.
 - **Instância única:** `requestSingleInstanceLock` com foco na janela existente.
 
-## 7. Preparação para a portabilidade (Fase 18 — nada implementado)
+## 7. Portabilidade (Fase 18 — implementada)
 
-Para não fechar portas no futuro:
+A preparação descrita abaixo virou realidade; a Fase 18 adicionou a camada
+de resolução de caminhos. Ver `docs/portabilidade.md` para o guia completo.
 
-- caminhos de dados sempre resolvidos por abstração (diretório de dados do SO), nunca hardcoded;
-- assets referenciados de forma relativa/empacotada;
+- caminhos de dados sempre resolvidos por abstração — `src/main/portabilidade.js`
+  resolve o diretório por **precedência** (`PULSO_DIRETORIO_DADOS` → modo
+  portátil → `<appData>/pulso`), nunca por caminho hardcoded da máquina de
+  desenvolvimento;
+- assets referenciados de forma relativa/empacotada (copiados para
+  `resources/app/` no pacote);
 - nenhuma dependência de rede para funções essenciais (offline-first);
-- ferramenta de empacotamento (electron-builder / electron-forge) será escolhida na Fase 18.
+- empacotamento próprio (`scripts/build-portable.mjs`) — a decisão foi
+  **não** adotar electron-builder/electron-forge nesta fase, porque o
+  projeto empacota a partir do próprio `dist/` do Electron já presente no
+  `node_modules` (sem dependência de rede na build; ver ADR-015).
+
+### ADR-015 — Resolução de dados por precedência explícita, não por convenção (Fase 18)
+
+**Decisão:** o diretório de dados (`pulso.db`) é resolvido em um módulo puro
+(`src/main/portabilidade.js`, sem importar Electron) com três camadas de
+precedência:
+
+1. `PULSO_DIRETORIO_DADOS` (variável de ambiente) — caminho explícito, útil
+   em testes manuais/CI;
+2. modo portátil — `PULSO_PORTABLE=1` **ou** marcador `pulso-portatil.json`
+   encontrado subindo a partir do executável → `<raiz-do-pacote>/data`;
+3. padrão do sistema — `<appData>/pulso` (perfil do usuário).
+
+**Motivos:** separar **APLICAÇÃO ≠ DADOS DO USUÁRIO** sem duplicar lógica
+entre os três pacotes (Linux, Windows, pendrive); permitir testar a
+resolução sem Electron (módulo puro); evitar que um marcador ausente
+produza detecção portátil falsa (`localizarRaizPacote` devolve `''`).
+
+**Consequências:** o `main.js` consome apenas o resultado da resolução;
+`inicializarBanco` recebe o diretório pronto (o núcleo continua nunca
+resolvendo caminho); no modo portátil o `userData` do Electron e o banco
+são caminhos distintos — **ambos** saem do perfil do sistema operacional e
+vivem dentro do pacote (`runtime/` e `data/`). Validação: Linux (pacote
+tar + pendrive) e Windows **sob Wine 10** (fumaça `ok:true`, banco do Linux
+reutilizado sem migração); máquina Windows real pendente — P-036 (ver
+`docs/portabilidade.md` §9).
+
+**Relacionado — empacotamento próprio:** a Fase 18 adotou um script próprio
+(`scripts/build-portable.mjs`) em vez de electron-builder/forge: o pacote é
+montado a partir do `dist/` do Electron já presente em `node_modules` (sem
+dependência de rede na build) e, em build cruzada, o runtime win32 é
+extraído do cache do Electron (ver `docs/portabilidade.md` §4).
 
 ## 8. Segurança (quando o Electron existir)
 

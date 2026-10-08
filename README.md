@@ -30,6 +30,9 @@ npm install                 # instala dependências (inclui o Electron)
 npm start                   # inicia a aplicação desktop
 npm test                    # testes unitários + teste de fumaça do Electron
 npm run verificar-ambiente  # verifica o ambiente de desenvolvimento
+npm run build:portable      # monta o pacote portátil (Fase 18)
+npm run build:linux         # gera dist/PULSO-0.1.0-linux-portatil.tar.gz
+npm run build:windows       # gera dist/PULSO-0.1.0-windows-portatil.zip (validado sob Wine)
 ```
 
 ## Estrutura
@@ -66,6 +69,7 @@ pulso/
 | [`docs/projeto.md`](docs/projeto.md) | Sistema de projetos: estados, missões, progresso (Fase 07) |
 | [`docs/financas.md`](docs/financas.md) | Sistema financeiro: carteira, transações, orçamentos (Fase 08) |
 | [`docs/loja.md`](docs/loja.md) | Loja / Lista de desejos: desejos, compras e integração financeira (Fase 09) |
+| [`docs/portabilidade.md`](docs/portabilidade.md) | Pacotes Linux/Windows/pendrive e localização dos dados (Fase 18) |
 
 ## Git
 
