@@ -29,6 +29,52 @@ const CRIAR_TABELA_CONTROLE = `
 const SELECIONAR_APLICADAS =
   'SELECT versao, nome, aplicada_em FROM schema_migrations ORDER BY versao';
 
+/**
+ * Verifica se uma tabela existe DE FATO no banco.
+ *
+ * O registro em `schema_migrations` diz o que a migração DEVERIA ter criado;
+ * ele não garante que a criação aconteceu (ver MIGRACAO_015). Todo caminho
+ * que depende de outra tabela precisa perguntar ao dicionário do SQLite, e
+ * não ao controle de migrações.
+ *
+ * @param {import('node:sqlite').DatabaseSync} banco
+ * @param {string} nome
+ * @returns {boolean}
+ */
+function tabelaExiste(banco, nome) {
+  return Boolean(
+    banco
+      .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(nome),
+  );
+}
+
+/**
+ * Verifica se `tabela.coluna` declara chave estrangeira para `tabelaAlvo`.
+ *
+ * Existe porque a integridade referencial do PULSO é regra de projeto: uma
+ * migração pode cair na degradação "coluna simples" (MIGRACAO_014) e é
+ * preciso descobrir isso pelo PRAGMA para restaurar a FK.
+ *
+ * @param {import('node:sqlite').DatabaseSync} banco
+ * @param {string} tabela nome simples (constante interna — validado abaixo)
+ * @param {string} coluna
+ * @param {string} tabelaAlvo
+ * @returns {boolean}
+ */
+function temChaveEstrangeira(banco, tabela, coluna, tabelaAlvo) {
+  // `PRAGMA foreign_key_list` não aceita parâmetro vinculado: o nome entra
+  // na string. Todos os callers passam constantes internas; a validação
+  // abaixo mantém a garantia mesmo se algum dia isso mudar.
+  if (!/^[a-z_][a-z0-9_]*$/.test(tabela) || !/^[a-z_][a-z0-9_]*$/.test(coluna)) {
+    throw new Error(`temChaveEstrangeira: identificador inválido (${tabela}.${coluna}).`);
+  }
+  return banco
+    .prepare(`PRAGMA foreign_key_list(${tabela})`)
+    .all()
+    .some((vinculo) => vinculo.from === coluna && vinculo.table === tabelaAlvo);
+}
+
 /** Migração 001 — infraestrutura base do PULSO (Fase 02). */
 const MIGRACAO_001 = Object.freeze({
   versao: 1,
@@ -415,6 +461,41 @@ function conciliarAtributosLegados(banco, tabelas) {
 }
 
 /**
+ * Definição canônica da tabela `servico` (Fase 10.1 — Estrutura de Serviços).
+ *
+ * Fica fora da migração 010 de propósito: a MIGRACAO_015 precisa recriar
+ * EXATAMENTE a mesma tabela nos bancos que ficaram sem ela (ver o comentário
+ * da 015). Duplicar o DDL em dois lugares abriria espaço para as duas
+ * definições divergirem — e um schema que diverge em silêncio é a origem
+ * desta classe de bug. Uma fonte, dois usos.
+ */
+const SQL_TABELA_SERVICO = `
+      CREATE TABLE servico (
+        id                      INTEGER PRIMARY KEY,
+        jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
+        nome                    TEXT NOT NULL,
+        descricao               TEXT,
+        fornecedor              TEXT,
+        categoria               TEXT NOT NULL,
+        valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
+        estado                  TEXT NOT NULL,
+        criado_em               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        atualizado_em           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        arquivado_em            TEXT,
+        CHECK (estado IN ('ativo', 'inativo', 'arquivado')),
+        CHECK (categoria IN (
+          'moradia', 'contas', 'telecomunicacoes', 'assinaturas', 'tecnologia',
+          'educacao', 'saude', 'transporte', 'lazer', 'trabalho', 'outros'
+        ))
+      ) STRICT
+    `;
+
+const INDICES_SERVICO = Object.freeze([
+  'CREATE INDEX IF NOT EXISTS idx_servico_jogador ON servico(jogador_id)',
+  'CREATE INDEX IF NOT EXISTS idx_servico_estado ON servico(jogador_id, estado)',
+]);
+
+/**
  * Migração 010 — serviços (Fase 10.1 — Estrutura de Serviços).
  *
  * O serviço é a estrutura PERMANENTE de uma obrigação/contratação
@@ -434,28 +515,8 @@ const MIGRACAO_010 = Object.freeze({
   versao: 10,
   nome: 'criar-tabela-servico',
   cima(banco) {
-    banco.exec(`
-      CREATE TABLE servico (
-        id                      INTEGER PRIMARY KEY,
-        jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
-        nome                    TEXT NOT NULL,
-        descricao               TEXT,
-        fornecedor              TEXT,
-        categoria               TEXT NOT NULL,
-        valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
-        estado                  TEXT NOT NULL,
-        criado_em               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        atualizado_em           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-        arquivado_em            TEXT,
-        CHECK (estado IN ('ativo', 'inativo', 'arquivado')),
-        CHECK (categoria IN (
-          'moradia', 'contas', 'telecomunicacoes', 'assinaturas', 'tecnologia',
-          'educacao', 'saude', 'transporte', 'lazer', 'trabalho', 'outros'
-        ))
-      ) STRICT
-    `);
-    banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_jogador ON servico(jogador_id)');
-    banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_estado ON servico(jogador_id, estado)');
+    banco.exec(SQL_TABELA_SERVICO);
+    for (const indice of INDICES_SERVICO) banco.exec(indice);
   },
 });
 
@@ -616,23 +677,31 @@ const MIGRACAO_014 = Object.freeze({
   versao: 14,
   nome: 'campos-de-pagamento-e-estado-paga-em-servico-conta',
   cima(banco) {
-    // Bancos sintéticos/legados podem ter a v7 registrada como aplicada sem a
-    // tabela `transacao`. Com `PRAGMA foreign_keys = ON` o INSERT valida as
-    // FKs, e um alvo inexistente quebraria a migração — por isso o vínculo só
-    // recebe REFERENCES quando a tabela existe (senão fica coluna simples).
-    const temTransacao = Boolean(
-      banco
-        .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = 'transacao'")
-        .get(),
-    );
+    // Bancos sintéticos/legados podem ter as tabelas da Fase 10 registradas
+    // como aplicadas sem que existam de fato. Com `PRAGMA foreign_keys = ON`
+    // o SQLite valida a FK no momento do DML — o `CREATE TABLE ... REFERENCES`
+    // passa, mas o `INSERT ... SELECT` seguinte quebra com "no such table".
+    // Por isso cada vínculo só recebe REFERENCES quando a tabela alvo existe
+    // de fato; senão fica coluna simples (o dado é preservado do mesmo jeito,
+    // e a FK é recriada por uma migração posterior se o alvo voltar — é
+    // exatamente o que a MIGRACAO_015 faz ao criar a tabela que faltava).
+    const temTransacao = tabelaExiste(banco, 'transacao');
+    const temServico = tabelaExiste(banco, 'servico');
+    const temRecorrencia = tabelaExiste(banco, 'servico_recorrencia');
     const colunaTransacao = temTransacao
       ? 'transaction_id INTEGER REFERENCES transacao(id) ON DELETE SET NULL'
       : 'transaction_id INTEGER';
+    const colunaServico = temServico
+      ? 'servico_id              INTEGER NOT NULL REFERENCES servico(id) ON DELETE RESTRICT'
+      : 'servico_id              INTEGER NOT NULL';
+    const colunaRecorrencia = temRecorrencia
+      ? 'recorrencia_id          INTEGER REFERENCES servico_recorrencia(id) ON DELETE SET NULL'
+      : 'recorrencia_id          INTEGER';
     banco.exec(`
       CREATE TABLE servico_conta_pagamento (
         id                      INTEGER PRIMARY KEY,
         jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
-        servico_id              INTEGER NOT NULL REFERENCES servico(id) ON DELETE RESTRICT,
+        ${colunaServico},
         referencia              TEXT NOT NULL,
         descricao               TEXT,
         valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
@@ -641,7 +710,7 @@ const MIGRACAO_014 = Object.freeze({
         criado_em               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         atualizado_em           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         cancelado_em            TEXT,
-        recorrencia_id          INTEGER REFERENCES servico_recorrencia(id) ON DELETE SET NULL,
+        ${colunaRecorrencia},
         paid_amount             INTEGER,
         paid_at                 TEXT,
         payment_description     TEXT,
@@ -680,6 +749,133 @@ const MIGRACAO_014 = Object.freeze({
   },
 });
 
+/**
+ * Migração 015 — autocorreção de bancos com a tabela `servico` ausente.
+ *
+ * ## O que aconteceu (Bugs 001 e 002)
+ *
+ * A v010 nasceu com outro escopo (`criar-tabelas-despesas-recorrentes`) e,
+ * quando a Fase 10 foi reformulada para "serviços", foi REESCRITA no lugar
+ * para `criar-tabela-servico`. Isso viola a regra central deste arquivo
+ * ("migração já aplicada NUNCA é editada") e produziu um vazio silencioso:
+ *
+ *   - num banco criado ANTES da reescrita, a v010 consta como aplicada com o
+ *     nome antigo e o par `despesa_recorrente`/`ocorrencia_despesa` no lugar;
+ *   - `aplicarMigracoes` decide pelo NÚMERO da versão, então a v010 atual
+ *     nunca roda ali → a tabela `servico` nunca é criada;
+ *   - a v011 e a v012 criam `servico_conta`/`servico_recorrencia` COM
+ *     `REFERENCES servico(id)`. O SQLite aceita o `CREATE TABLE` sem validar
+ *     o alvo da FK, então ambas "passam" e o banco sobe assim;
+ *   - a v014 ainda reconstrói `servico_conta` — degradada para coluna
+ *     simples, porque a guarda que lá existe detecta a ausência;
+ *   - o resultado é um banco em "v14, 0 migrações" SEM `servico`, e a
+ *     aplicação morre no primeiro uso: `no such table: servico`.
+ *
+ * Por isso esta migração não confia no controle de versões: ela pergunta ao
+ * dicionário do SQLite e conserta o que estiver de fato faltando.
+ *
+ * ## O que ela faz
+ *
+ * 1. Se `servico` não existir, cria a tabela canônica (mesma definição da
+ *    v010) e seus índices. A tabela nasce VAZIA: as contas legadas apontam
+ *    para `servico_id` que não batem com nenhum serviço real, e inventar
+ *    serviços para preencher ids seria fabricar histórico do usuário.
+ * 2. Se `servico` existia mas `servico_conta` ficou sem a FK para ela
+ *    (caminho degradado da v014), reconstrói a tabela com a FK de volta,
+ *    preservando todas as linhas.
+ *
+ * As duas etapas são independentes e cada uma é pulada quando desnecessária:
+ * em um banco íntegro esta migração não altera nada.
+ *
+ * ## Por que não apaga as tabelas legadas
+ *
+ * `despesa_recorrente`/`ocorrencia_despesa` não são mais lidas por nenhum
+ * código (verificado em `src/`), mas apagá-las é decisão de DONO DE DADO, não
+ * de correção de bug: o usuário pode ter algo guardado ali. Elas são
+ * preservadas e a aplicação simplesmente deixa de usá-las.
+ */
+const MIGRACAO_015 = Object.freeze({
+  versao: 15,
+  nome: 'criar-servico-ausente-e-restaurar-integridade-do-vinculo',
+  cima(banco) {
+    // Etapa 1 — recriar `servico` quando a v010 atual nunca rodou naquele banco.
+    if (!tabelaExiste(banco, 'servico')) {
+      banco.exec(SQL_TABELA_SERVICO);
+      for (const indice of INDICES_SERVICO) banco.exec(indice);
+    }
+    // Etapa 2 — restaurar a FK de serviço que a v014 perdeu ao degradar a
+    // coluna (o dado está lá; falta só a declaração de integridade).
+    //
+    // Guarda de órfãos: se alguma linha apontar para um serviço inexistente, a
+    // cópia com a FK declarada seria REJEITADA e a transação inteira voltaria
+    // — devolvendo o usuário exatamente ao problema que esta migração conserta
+    // (aplicação que não abre). Nessas condições a tabela já é legível; a
+    // integridade declarativa volta sozinha quando o serviço existir. O
+    // conserto de verdade (Etapa 1) jamais depende desta etapa.
+    const contasOrfas = tabelaExiste(banco, 'servico_conta') && tabelaExiste(banco, 'servico')
+      ? banco
+        .prepare(
+          `SELECT COUNT(*) AS n FROM servico_conta
+            WHERE servico_id NOT IN (SELECT id FROM servico)`,
+        )
+        .get().n
+      : 0;
+    if (
+      tabelaExiste(banco, 'servico_conta')
+      && !temChaveEstrangeira(banco, 'servico_conta', 'servico_id', 'servico')
+      && contasOrfas === 0
+    ) {
+      banco.exec(`
+        CREATE TABLE servico_conta_vinculo (
+          id                      INTEGER PRIMARY KEY,
+          jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
+          servico_id              INTEGER NOT NULL REFERENCES servico(id) ON DELETE RESTRICT,
+          referencia              TEXT NOT NULL,
+          descricao               TEXT,
+          valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
+          vencimento              TEXT NOT NULL,
+          estado                  TEXT NOT NULL,
+          criado_em               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          atualizado_em           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+          cancelado_em            TEXT,
+          recorrencia_id          INTEGER REFERENCES servico_recorrencia(id) ON DELETE SET NULL,
+          paid_amount             INTEGER,
+          paid_at                 TEXT,
+          payment_description     TEXT,
+          transaction_id          INTEGER REFERENCES transacao(id) ON DELETE SET NULL,
+          CHECK (estado IN ('pendente', 'paga', 'cancelada')),
+          CHECK (referencia GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'),
+          CHECK (vencimento GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          CHECK (paid_amount IS NULL OR paid_amount > 0),
+          CHECK (paid_at IS NULL OR paid_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          CHECK (estado <> 'paga' OR (paid_amount IS NOT NULL AND paid_at IS NOT NULL)),
+          UNIQUE (servico_id, referencia)
+        ) STRICT
+      `);
+      banco.exec(`
+        INSERT INTO servico_conta_vinculo
+          (id, jogador_id, servico_id, referencia, descricao, valor_esperado_centavos,
+           vencimento, estado, criado_em, atualizado_em, cancelado_em, recorrencia_id,
+           paid_amount, paid_at, payment_description, transaction_id)
+        SELECT id, jogador_id, servico_id, referencia, descricao, valor_esperado_centavos,
+               vencimento, estado, criado_em, atualizado_em, cancelado_em, recorrencia_id,
+               paid_amount, paid_at, payment_description, transaction_id
+          FROM servico_conta
+      `);
+      banco.exec('DROP TABLE servico_conta');
+      banco.exec('ALTER TABLE servico_conta_vinculo RENAME TO servico_conta');
+      banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_conta_jogador ON servico_conta(jogador_id)');
+      banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_conta_servico ON servico_conta(servico_id)');
+      banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_conta_vencimento ON servico_conta(jogador_id, vencimento)');
+      banco.exec('CREATE INDEX IF NOT EXISTS idx_servico_conta_recorrencia ON servico_conta(recorrencia_id)');
+      banco.exec(`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_servico_conta_transaction
+          ON servico_conta(transaction_id) WHERE transaction_id IS NOT NULL
+      `);
+    }
+  },
+});
+
 /** Lista oficial de migracoes — fases futuras ACRESCENTAM ao final. */
 export const MIGRACOES = Object.freeze([
   MIGRACAO_001,
@@ -696,6 +892,7 @@ export const MIGRACOES = Object.freeze([
   MIGRACAO_012,
   MIGRACAO_013,
   MIGRACAO_014,
+  MIGRACAO_015,
 ]);
 
 function validarLista(migracoes) {
@@ -730,7 +927,24 @@ export function aplicarMigracoes(banco, migracoes = MIGRACOES) {
   const resultado = {
     aplicadas: [],
     versaoAtual: Math.max(0, ...jaAplicadas.keys()),
+    divergencias: [],
   };
+
+  // O banco decide o que já rodou pelo NÚMERO da versão. Se o nome gravado
+  // não for mais o nome que o código conhece para aquela versão, a migração
+  // foi REESCRITA depois de aplicada — situação que o PULSO teve na v010
+  // e que deixou bancos sem a tabela `servico` (ver MIGRACAO_015). Reportar
+  // em vez de barrar: quem corrige é uma migração nova, nunca a inicialização.
+  for (const migracao of migracoes) {
+    const nomeGravado = jaAplicadas.get(migracao.versao);
+    if (nomeGravado !== undefined && nomeGravado !== migracao.nome) {
+      resultado.divergencias.push({
+        versao: migracao.versao,
+        nomeNoBanco: nomeGravado,
+        nomeNoCodigo: migracao.nome,
+      });
+    }
+  }
 
   for (const migracao of migracoes) {
     if (jaAplicadas.has(migracao.versao)) continue; // nunca reexecuta

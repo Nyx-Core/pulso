@@ -638,7 +638,7 @@ function exibirVisaoProjeto(nome) {
 async function abrirPickerMissao() {
   if (!projetoAtualId) return;
   elementos.projetoPickerOpcoes.replaceChildren();
-  const resultado = await window.pulso.missao.listar(jogadorAtual.id);
+  const resultado = await window.pulso.missao.listar();
   if (!resultado.ok) return;
   const disponiveis = (resultado.missoes || []).filter((m) => !m.projetoId);
   if (disponiveis.length === 0) {
@@ -848,15 +848,24 @@ function preencherFiltroCategoria() {
     ...(financaConfig?.categoriasDespesa ?? []),
     ...(financaConfig?.categoriasReceita ?? []),
   ];
-  elementos.filtroCategoriaFinanca.replaceChildren(
-    ...[...todas].sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt-BR')).map((c) => {
+  // "TODAS AS CATEGORIAS" entra na MESMA lista do `replaceChildren`. Antes ela
+  // era inserida depois, com `insertBefore(opcao, 0)`: o segundo parâmetro de
+  // `insertBefore` é um Node de referência, NÃO um índice — o navegador
+  // lançava TypeError, `carregarFinancas` abortava no meio (o histórico nem
+  // chegava a carregar) e a tela acusava "Falha de comunicação com o núcleo"
+  // mesmo com a ponte e o banco funcionando.
+  const todasOpcao = document.createElement('option');
+  todasOpcao.value = '';
+  todasOpcao.textContent = 'TODAS AS CATEGORIAS';
+  const opcoes = [...todas]
+    .sort((a, b) => a.rotulo.localeCompare(b.rotulo, 'pt-BR'))
+    .map((c) => {
       const opcao = document.createElement('option');
       opcao.value = c.valor;
       opcao.textContent = c.rotulo;
       return opcao;
-    }),
-  );
-  elementos.filtroCategoriaFinanca.insertBefore(new Option('TODAS AS CATEGORIAS', ''), 0);
+    });
+  elementos.filtroCategoriaFinanca.replaceChildren(todasOpcao, ...opcoes);
   elementos.filtroCategoriaFinanca.value = categoriaFiltroFinanca;
 }
 
@@ -1316,7 +1325,10 @@ function rotuloPrioridade(prioridade) {
 async function visualizarMissao(id) {
   if (!jogadorAtual) return;
   try {
-    const resultado = await window.pulso.missao.obter(jogadorAtual.id, id);
+    // A ponte é `missao.obter(id)`: o `id` do jogador é descartado aqui pelo
+    // núcleo. Passar `jogadorAtual.id` primeiro fazia toda missão aberta cair
+    // no MESMO registro — o de id igual ao do jogador.
+    const resultado = await window.pulso.missao.obter(id);
     if (!resultado.ok) {
       console.warn(`PULSO: missão ${id} não encontrada`);
       return;
@@ -1374,7 +1386,12 @@ function exibirVisaoMissao(nome) {
 function exibirFormularioMissao(missao = null) {
   modoEdicaoMissao = !!missao;
   elementos.formularioMissaoTituloSecao.textContent = missao ? 'EDITAR MISSÃO' : 'NOVA MISSÃO';
-  elementos.formularioMissaoTitulo.value = missao?.titulo || '';
+  elementos.formularioMissaoTitulo.textContent = missao ? 'EDITAR AÇÃO' : 'REGISTRAR AÇÃO';
+  // O título vem do CAMPO `#campo-missao-titulo`. O `#formulario-missao-titulo`
+  // é o título da tela (`<h1>`) e não tem `value` — usá-lo aqui enviava
+  // `undefined` ao núcleo, que respondia "O título da missão é obrigatório."
+  // mesmo com o campo preenchido.
+  elementos.campoMissaoTitulo.value = missao?.titulo || '';
   elementos.campoMissaoDescricao.value = missao?.descricao || '';
   elementos.campoMissaoPrioridade.value = missao?.prioridade || 'normal';
   elementos.campoMissaoPrazo.value = missao?.prazo ? missao.prazo.slice(0, 16) : '';
@@ -1387,10 +1404,10 @@ async function salvarMissao(evento) {
   evento.preventDefault();
   if (!jogadorAtual) return;
   const dados = {
-    titulo: elementos.formularioMissaoTitulo.value,
+    titulo: elementos.campoMissaoTitulo.value,
     descricao: elementos.campoMissaoDescricao.value,
     prioridade: elementos.campoMissaoPrioridade.value,
-    prazo: elementos.campoMissaoPrazo.value || null,
+    prazo: converterPrazoLocal(elementos.campoMissaoPrazo.value),
   };
   try {
     const resultado = modoEdicaoMissao && missaoAtualId

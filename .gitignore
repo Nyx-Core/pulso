@@ -26,6 +26,9 @@ tmp/
 *.db
 *.db-wal
 *.db-shm
+# Diretórios que só aparecem ao forçar PULSO_PORTABLE=1 na raiz (Fase 18)
+/data/
+/runtime/
 
 # ── Testes ──────────────────────────────────────
 coverage/

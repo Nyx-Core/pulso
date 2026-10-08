@@ -14,7 +14,7 @@
  */
 
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import registro from './registro.js';
@@ -80,20 +80,56 @@ const ROTULOS_ESTADOS_LOJA = ESTADOS_DESEJO_ROTULOS;
 import { ErroValidacao, ErroConflito, ErroTransicao } from '../core/erros.js';
 import canais from './canais.cjs';
 
+import { resolverDiretórioDados, PULSO_DIRETORIO_DADOS, PULSO_PORTABLE } from './portabilidade.js';
+
 const MODO_TESTE_FUMACA = process.argv.includes('--teste-fumaca');
 const ambiente = MODO_TESTE_FUMACA ? 'teste' : determinarAmbiente({ isPackaged: app.isPackaged });
 
-// Diretório de dados do usuário: resolvido dinamicamente pelo sistema
-// operacional (appData/pulso), fora do repositório. No teste de fumaça,
-// um diretório temporário isolado é usado para não tocar no banco real.
-// PULSO_DIRETORIO_DADOS permite testes manuais com banco próprio.
-if (MODO_TESTE_FUMACA) {
+// Diretório de dados do PULSO: resolvido centralizadamente em
+// `portabilidade.js` (Fase 18). Regras de ordem:
+//   1. PULSO_DIRETORIO_DADOS → diretório explícito;
+//   2. Modo portátil → <raiz-do-pacote>/data;
+//   3. Padrão → <appData>/pulso.
+// O módulo de persistência (src/core/database) nunca resolve caminhos:
+// ele recebe `diretorioDados` pronto, garantindo que o banco não fique preso
+// no repositório, nem no perfil do usuário em modo portátil.
+const appData = app.getPath('appData');
+const exeDir = app.getPath('exe');
+const { portable, motivo, diretorioDados, raizPacote } = resolverDiretórioDados({
+  explicito: process.env[PULSO_DIRETORIO_DADOS],
+  exeDir,
+  appData,
+});
+
+let bancoDados;
+if (MODO_TESTE_FUMACA && process.env[PULSO_PORTABLE] === '1' && portable) {
+  // Fumaça forçada em modo portátil: reproduz o pacote real — banco em
+  // <raiz>/data (viaja com o pacote) e caches do Electron em
+  // <raiz>/runtime (descartáveis). Nada cai no perfil do sistema operacional.
+  app.setPath('userData', join(raizPacote, 'runtime'));
+  bancoDados = diretorioDados;
+} else if (MODO_TESTE_FUMACA) {
+  // Fumaça normal: diretório temporário isolado, sempre, para não
+  // tocar no banco real nem no pacote portátil.
   app.setPath('userData', mkdtempSync(join(tmpdir(), 'pulso-fumaca-')));
-} else if (process.env.PULSO_DIRETORIO_DADOS) {
-  app.setPath('userData', process.env.PULSO_DIRETORIO_DADOS);
+  bancoDados = app.getPath('userData');
+} else if (portable) {
+  // Portátil: userData dentro do pacote (runtime/) e banco em <raiz>/data —
+  // o perfil do sistema operacional permanece intacto.
+  app.setPath('userData', join(raizPacote, 'runtime'));
+  bancoDados = diretorioDados;
 } else {
-  app.setPath('userData', join(app.getPath('appData'), 'pulso'));
+  // Instalação tradicional: userData e banco no diretório do usuário.
+  app.setPath('userData', join(appData, 'pulso'));
+  bancoDados = diretorioDados;
 }
+mkdirSync(app.getPath('userData'), { recursive: true });
+
+const fumacaIsolada = MODO_TESTE_FUMACA && bancoDados !== diretorioDados;
+registro.info(
+  `Dados do usuário: ${bancoDados} (portátil: ${portable ? 'sim' : 'não'} — motivo: ${motivo}` +
+    `${fumacaIsolada ? '; fumaça isolada em temporário' : ''}).`,
+);
 
 let janelaPrincipal = null;
 let configuracao = null;
@@ -120,6 +156,7 @@ const resultadosFumaca = {
   rendererPronto: false,
   ipcAtivo: false,
   banco: null,
+  financas: null,
   errosConsole: [],
   versoes: null,
 };
@@ -211,16 +248,47 @@ function executarTesteFumaca(janela) {
       const dadosCriados = await janela.webContents.executeJavaScript(
         `(async () => {
           const hoje = new Date().toISOString().slice(0, 10);
-          const missao = await window.pulso.missao.criar({ titulo: 'Miss\\u00e3o do teste de fuma\\u00e7a' });
-          const transacao = await window.pulso.financa.criarTransacao({
-            jogadorId: ${Number(jogadorId) || 0},
-            tipo: 'receita',
-            valorCentavos: 12345,
-            categoria: 'salario',
-            descricao: 'Receita do teste de fuma\\u00e7a',
-            data: hoje,
-          });
-          return { missaoOk: !!missao && missao.ok === true, transacaoOk: !!transacao && transacao.ok === true };
+          const jogadorId = ${Number(jogadorId) || 0};
+          const passo = [];
+          const marca = (nome, valor) => passo.push([nome, !!valor]);
+          try {
+            const missao = await window.pulso.missao.criar({ titulo: 'Miss\\u00e3o do teste de fuma\\u00e7a' });
+            marca('missaoOk', missao && missao.ok === true);
+            const transacao = await window.pulso.financa.criarTransacao({
+              jogadorId, tipo: 'receita', valorCentavos: 12345, categoria: 'salario',
+              descricao: 'Receita do teste de fuma\\u00e7a', data: hoje,
+            });
+            marca('transacaoOk', transacao && transacao.ok === true);
+
+            // Cadeia das Fases 10 a 16 pela ponte REAL (IPC), na ordem em que o
+            // operador usaria: servico -> recorrencia -> geracao. A Fase 17
+            // exige validar o sistema integrado, e a ponte e onde um canal
+            // trocado ou um campo faltando apareceria — coisa que os testes
+            // de nucleo nao enxergam.
+            const servico = await window.pulso.servico.criar({
+              jogadorId, nome: 'Servico do teste de fumaca',
+              categoria: 'contas', valorEsperado: 5000,
+            });
+            marca('servicoOk', servico && servico.ok === true);
+            if (servico && servico.ok) {
+              const recorrencia = await window.pulso.recorrencia.criar({
+                jogadorId, servicoId: servico.servico.id, frequencia: 'mensal',
+                dataInicio: hoje, diaVencimento: Number(hoje.slice(8, 10)),
+                valorEsperado: 5000,
+              });
+              marca('recorrenciaOk', recorrencia && recorrencia.ok === true);
+              if (recorrencia && recorrencia.ok) {
+                const geracao = await window.pulso.recorrencia.gerar(
+                  recorrencia.recorrencia.id,
+                  { periodoInicio: hoje.slice(0, 7) + '-01', periodoFim: hoje, hoje },
+                );
+                marca('geracaoOk', geracao && geracao.ok === true);
+              }
+            }
+            return Object.assign(Object.fromEntries(passo), { passos: passo });
+          } catch (erro) {
+            return { erro: String((erro && erro.message) || erro), passos: passo };
+          }
         })()`,
         true,
       );
@@ -279,6 +347,43 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.dashboard = { visivel: false, erro: erro.message };
       }
 
+      // ── Módulo de Finanças: a tela precisa ABRIR sem erro de console ────
+      // A tela de Finanças carregava resumo e orçamentos, mas o filtro de
+      // categorias usava `insertBefore(opcao, 0)`. O segundo parâmetro de
+      // `insertBefore` é um Node de referência, não um índice: o TypeError
+      // derrubava `carregarFinancas` no meio, o HISTÓRICO nunca carregava e a
+      // tela acusava "Falha de comunicação com o núcleo" com ponte e banco
+      // intactos. Nenhum teste de núcleo enxergaria isso — a falha só existe
+      // na tela real, já montada, então ela é aberta aqui e exigida limpa.
+      try {
+        const financas = await janela.webContents.executeJavaScript(
+          `(async () => {
+            const medir = () => ({
+              aviso: document.getElementById('aviso-financas')?.textContent ?? '',
+              historico: document.getElementById('lista-transacoes')?.textContent ?? '',
+              categorias: document.getElementById('filtro-categoria-financa')?.options.length ?? 0,
+              orcamentos: document.getElementById('lista-orcamentos')?.textContent ?? '',
+            });
+            window.__irParaFinancas();
+            const limite = Date.now() + 8000;
+            while (Date.now() < limite) {
+              await new Promise((r) => setTimeout(r, 200));
+              const estado = medir();
+              // o histórico e o filtro só existem se carregarFinancas
+              // terminou sem exceção no meio do caminho
+              if (estado.historico && estado.categorias > 1) {
+                return Object.assign({ abriu: true }, estado);
+              }
+            }
+            return Object.assign({ abriu: false }, medir());
+          })()`,
+          true,
+        );
+        resultadosFumaca.financas = financas;
+      } catch (erro) {
+        resultadosFumaca.financas = { abriu: false, erro: erro.message };
+      }
+
       const bancoOk =
         resultadosFumaca.banco?.inicializado === true && resultadosFumaca.banco.versaoSchema >= 1;
       const jogadorOk =
@@ -286,6 +391,8 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.jogador?.criado === true &&
         resultadosFumaca.jogador?.carregado === true;
       const dashboardOk = resultadosFumaca.dashboard?.visivel === true;
+      const financasOk =
+        resultadosFumaca.financas?.abriu === true && !resultadosFumaca.financas.aviso;
       const ok =
         resultadosFumaca.aplicacaoIniciou &&
         resultadosFumaca.janelaCriada &&
@@ -294,12 +401,13 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.rendererPronto &&
         resultadosFumaca.ipcAtivo &&
         dashboardOk &&
+        financasOk &&
         resultadosFumaca.errosConsole.length === 0;
       encerrarFumaca(
         ok,
         ok
           ? null
-          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, dashboard=${JSON.stringify(resultadosFumaca.dashboard ?? null)}, errosConsole=${resultadosFumaca.errosConsole.length}`,
+          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, dashboard=${JSON.stringify(resultadosFumaca.dashboard ?? null)}, financas=${JSON.stringify(resultadosFumaca.financas ?? null)}, errosConsole=${resultadosFumaca.errosConsole.length}`,
       );
     } catch (erro) {
       encerrarFumaca(false, `falha na verificação do renderer: ${erro.message}`);
@@ -865,10 +973,20 @@ async function aoIniciar() {
 
   // Banco antes da janela: sem memória confiável, a aplicação não inicia.
   try {
-    estadoBanco = inicializarBanco({ diretorioDados: app.getPath('userData') });
+    estadoBanco = inicializarBanco({ diretorioDados: bancoDados });
     registro.info(
       `Banco de dados ${estadoBanco.criado ? 'criado' : 'reutilizado'} (schema v${estadoBanco.versaoSchema}, ${estadoBanco.migracoesAplicadas.length} migração(ões) nesta execução).`,
     );
+    // Uma migração reescrita depois de aplicada deixa o banco com uma versão
+    // que promete um schema e entrega outro. O conserto é sempre uma migração
+    // nova; aqui só fica o registro para o diagnóstico não ser invisível.
+    for (const divergencia of estadoBanco.divergencias) {
+      registro.aviso(
+        `Migração ${divergencia.versao} gravada como "${divergencia.nomeNoBanco}" e hoje `
+        + `nomeada "${divergencia.nomeNoCodigo}" — o banco pode ter um schema diferente do `
+        + 'esperado. A correção chega por migração; nenhum dado é apagado por isso.',
+      );
+    }
   } catch (erro) {
     registro.erro('Falha ao inicializar o banco de dados.', erro);
     if (MODO_TESTE_FUMACA) {

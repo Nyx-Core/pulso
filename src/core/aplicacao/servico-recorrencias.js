@@ -46,6 +46,14 @@ export class ServicoRecorrencias {
     if (servico.jogadorId !== jogadorId) {
       throw new ErroValidacao('O serviço selecionado não pertence a este jogador.', 'servicoId');
     }
+    // Mesmo critério das contas: serviço arquivado está encerrado e não
+    // aceita novas regras de repetição.
+    if (servico.estado === 'arquivado') {
+      throw new ErroValidacao(
+        'Um serviço arquivado está encerrado e não aceita novas recorrências.',
+        'servicoId',
+      );
+    }
     return servico;
   }
 

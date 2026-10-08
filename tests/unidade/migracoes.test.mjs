@@ -8,7 +8,7 @@ import { abrirConexao, fecharConexao } from '../../src/core/database/conexao.js'
 import { aplicarMigracoes, versaoAtual, MIGRACOES } from '../../src/core/database/migracoes.js';
 import { calcularNivel } from '../../src/core/dominio/progressao.js';
 
-test('banco vazio recebe as migrações oficiais: schema v14 com infraestrutura, jogador, status, missões, progressão, projetos, finanças, lista de desejos, conciliação legada, serviços, contas, recorrências, vínculo da geração e campos de pagamento', () => {
+test('banco vazio recebe as migrações oficiais: schema v15 com infraestrutura, jogador, status, missões, progressão, projetos, finanças, lista de desejos, conciliação legada, serviços, contas, recorrências, vínculo da geração, campos de pagamento e autocorreção do schema legado', () => {
   const banco = abrirConexao({ caminho: ':memory:' });
   try {
     const resultado = aplicarMigracoes(banco);
@@ -27,9 +27,10 @@ test('banco vazio recebe as migrações oficiais: schema v14 com infraestrutura,
       { versao: 12, nome: 'criar-tabela-servico-recorrencia' },
       { versao: 13, nome: 'adicionar-recorrencia-id-em-servico-conta' },
       { versao: 14, nome: 'campos-de-pagamento-e-estado-paga-em-servico-conta' },
+      { versao: 15, nome: 'criar-servico-ausente-e-restaurar-integridade-do-vinculo' },
     ]);
-    assert.equal(resultado.versaoAtual, 14);
-    assert.equal(versaoAtual(banco), 14);
+    assert.equal(resultado.versaoAtual, 15);
+    assert.equal(versaoAtual(banco), 15);
 
     assert.equal(banco.prepare("SELECT valor FROM meta WHERE chave = 'aplicacao'").get().valor, 'PULSO');
     // a tabela do jogador existe e aceita inserção mínima
@@ -173,7 +174,7 @@ test('migrações já aplicadas não são executadas novamente', () => {
     assert.equal(registroDepois.aplicada_em, registroOriginal.aplicada_em, 'registro inalterado');
     assert.equal(
       banco.prepare('SELECT COUNT(*) AS n FROM schema_migrations').get().n,
-      14,
+      MIGRACOES.length,
       'todas as migrações oficiais registradas uma única vez',
     );
   } finally {
@@ -315,8 +316,8 @@ test('migração 009 concilia banco legado da Fase 06: restaura nivel e jogador_
     for (let versao = 5; versao <= 8; versao += 1) registrar.run(versao, `legado-${versao}`);
 
     // 5) A aplicação atual aplica a conciliação (v9), os serviços (v10),
-    //    as contas (v11), as recorrências (v12), o vínculo da geração (v13)
-    //    e os campos de pagamento (v14).
+    //    as contas (v11), as recorrências (v12), o vínculo da geração (v13),
+    //    os campos de pagamento (v14) e a autocorreção (v15).
     const resultado = aplicarMigracoes(banco);
     assert.deepEqual(resultado.aplicadas, [
       { versao: 9, nome: 'conciliar-progressao-legado' },
@@ -325,8 +326,9 @@ test('migração 009 concilia banco legado da Fase 06: restaura nivel e jogador_
       { versao: 12, nome: 'criar-tabela-servico-recorrencia' },
       { versao: 13, nome: 'adicionar-recorrencia-id-em-servico-conta' },
       { versao: 14, nome: 'campos-de-pagamento-e-estado-paga-em-servico-conta' },
+      { versao: 15, nome: 'criar-servico-ausente-e-restaurar-integridade-do-vinculo' },
     ]);
-    assert.equal(versaoAtual(banco), 14);
+    assert.equal(versaoAtual(banco), 15);
 
     // 6) Progressão reconstruída: nivel derivado do XP pela regra do domínio.
     const colunas = banco
@@ -377,3 +379,332 @@ test('migração 009 não altera banco que já está no formato atual', () => {
     fecharConexao(banco);
   }
 });
+
+// ── Regressão: banco sem a tabela `servico` (Fase 17) ──────────────────
+//
+// A migração 014 criava `servico_conta_pagamento` com
+// `REFERENCES servico(id)` e logo depois copiava as linhas com
+// `INSERT ... SELECT`. Com `PRAGMA foreign_keys = ON`, o SQLite aceita o
+// CREATE, mas valida a FK no DML — e o INSERT quebrava com
+// "no such table: main.servico", travando a abertura da aplicação em
+// bancos legados/sintéticos que registrassem a v11+ sem a tabela `servico`.
+//
+// A mesma proteção que já existia para `transacao` passou a valer para
+// `servico` e `servico_recorrencia`.
+
+test('migração 014: banco sem a tabela `servico` migra sem travar (regressão)', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    // Sobe até a v13 e remove a tabela que a v14 referencia.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    banco.exec('DROP TABLE servico');
+    const temServico = banco
+      .prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = 'servico'")
+      .get();
+    assert.equal(temServico, undefined, 'pré-condição: a tabela servico realmente não existe');
+
+    // Antes da correção isto lançava "no such table: main.servico".
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.equal(versaoAtual(banco), MIGRACOES.length, 'a migração deve concluir');
+
+    // A tabela final existe, com os CHECKs de sempre e sem FK órfã.
+    const sql = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    assert.match(sql, /UNIQUE \(servico_id, referencia\)/);
+    assert.match(sql, /CHECK \(estado IN \('pendente', 'paga', 'cancelada'\)\)/);
+    assert.deepEqual(banco.prepare('PRAGMA foreign_key_check').all(), [], 'nenhuma FK órfã');
+    // A v014 não trava e a v015 (que só existe a partir de agora) completa a
+    // recuperação: a tabela que faltava é recriada e a FK volta.
+    assert.deepEqual(resultado.aplicadas.map((m) => m.versao), [14, 15]);
+    assert.ok(
+      banco.prepare("SELECT 1 AS existe FROM sqlite_master WHERE type = 'table' AND name = 'servico'").get(),
+      'a tabela servico é recriada — a aplicação abre',
+    );
+    assert.ok(
+      banco.prepare('PRAGMA foreign_key_list(servico_conta)').all()
+        .some((v) => v.from === 'servico_id' && v.table === 'servico'),
+      'e a integridade referencial do vínculo é restaurada',
+    );
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 014: banco completo mantém as três FKs de servico_conta', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES);
+    const sql = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    // A guarda só remove a REFERENCES quando o alvo NÃO existe: no banco
+    // completo, as três continuam — perder a integridade referencial seria
+    // trocar um bug de inicialização por um bug de dados.
+    assert.match(sql, /REFERENCES servico\(id\) ON DELETE RESTRICT/, 'FK de serviço preservada');
+    assert.match(sql, /REFERENCES servico_recorrencia\(id\)/, 'FK de recorrência preservada');
+    assert.match(sql, /REFERENCES transacao\(id\)/, 'FK de transação preservada');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 014: reconstrói a tabela preservando as contas existentes', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    const agora = new Date().toISOString();
+    banco.prepare("INSERT INTO jogador (nome, criado_em) VALUES (?, ?)").run('Ana', agora);
+    banco
+      .prepare(
+        `INSERT INTO servico (jogador_id, nome, categoria, valor_esperado_centavos, estado, criado_em, atualizado_em)
+         VALUES (1, 'Internet', 'contas', 5000, 'ativo', ?, ?)`,
+      )
+      .run(agora, agora);
+    banco
+      .prepare(
+        `INSERT INTO servico_conta
+           (jogador_id, servico_id, referencia, valor_esperado_centavos, vencimento, estado, criado_em, atualizado_em)
+         VALUES (1, 1, '2026-09', 5000, '2026-09-10', 'pendente', ?, ?)`,
+      )
+      .run(agora, agora);
+
+    aplicarMigracoes(banco, MIGRACOES);
+
+    const conta = banco.prepare('SELECT * FROM servico_conta').all();
+    assert.equal(conta.length, 1, 'a conta não pode sumir na reconstrução');
+    assert.equal(conta[0].referencia, '2026-09');
+    assert.equal(conta[0].valor_esperado_centavos, 5000);
+    // Sem pagamento registrado, a conta não pode virar 'paga'.
+    assert.equal(conta[0].estado, 'pendente');
+    assert.equal(conta[0].paid_amount, null);
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 015: banco com a v010 reescrita recebe a tabela servico que faltava (regressão do BUG 001)', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    // Cenário REAL do usuário: banco montado antes de a v010 ser reformulada
+    // para "serviços". A v010 consta como aplicada com o nome antigo e existem
+    // as tabelas legadas no lugar de `servico`.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 9));
+    banco.prepare("INSERT INTO jogador (nome) VALUES ('Ana')").run();
+    banco.exec(`
+      CREATE TABLE despesa_recorrente (
+        id                      INTEGER PRIMARY KEY,
+        jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
+        nome                    TEXT NOT NULL,
+        categoria               TEXT NOT NULL,
+        valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0)
+      ) STRICT
+    `);
+    banco.prepare("INSERT INTO despesa_recorrente (jogador_id, nome, categoria, valor_esperado_centavos) VALUES (1, 'Aluguel', 'moradia', 120000)").run();
+    // A v010 fica registrada com o NOME ANTIGO — é isso que faz o mecanismo
+    // (que decide pelo número) pular a criação de `servico` para sempre.
+    banco.prepare('INSERT INTO schema_migrations (versao, nome) VALUES (?, ?)').run(10, 'criar-tabelas-despesas-recorrentes');
+    // A partir daqui o código atual roda da v011 em diante: a v010 é pulada
+    // pelo NÚMERO, que é exatamente o defeito relatado.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 14));
+
+    // Pré-condição fiel ao banco do usuário: versão 14, sem `servico`.
+    assert.equal(versaoAtual(banco), 14);
+    assert.equal(
+      banco.prepare("SELECT 1 AS e FROM sqlite_master WHERE type = 'table' AND name = 'servico'").get(),
+      undefined,
+      'pré-condição: a tabela servico realmente não existe',
+    );
+
+    // Antes da correção isto não resolvia: nenhuma migração rodava, o log
+    // dizia "0 migração(ões)" e a aplicação morria com "no such table: servico".
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.deepEqual(resultado.aplicadas.map((m) => m.versao), [15], 'apenas a v015 faltava');
+    assert.equal(versaoAtual(banco), 15);
+
+    // `servico` existe agora, com a MESMA definição canônica da v010.
+    const sqlServico = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico'")
+      .get().sql;
+    assert.match(sqlServico, /CREATE TABLE servico/);
+    assert.match(sqlServico, /REFERENCES jogador\(id\) ON DELETE CASCADE/);
+    assert.match(sqlServico, /CHECK \(categoria IN/);
+    assert.match(sqlServico, /'telecomunicacoes'/);
+    assert.match(sqlServico, /STRICT/);
+    assert.equal(
+      banco.prepare('SELECT COUNT(*) AS n FROM servico').get().n, 0,
+      'a tabela nasce vazia: não se inventa serviço para preencher id órfão',
+    );
+
+    // A FK que a v014 degradou volta a existir.
+    const vincios = banco.prepare('PRAGMA foreign_key_list(servico_conta)').all();
+    assert.ok(
+      vincios.some((v) => v.from === 'servico_id' && v.table === 'servico'),
+      'a integridade referencial do vínculo com serviço deve ser restaurada',
+    );
+    assert.deepEqual(banco.prepare('PRAGMA foreign_key_check').all(), [], 'nenhuma FK órfã');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 015: preserva as contas existentes ao restaurar a FK do vínculo', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    // Mesmo caminho degradado da v014, agora com DADO dentro da tabela: a
+    // reconstrução da FK não pode custar uma linha ao usuário.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    banco.exec('DROP TABLE servico'); // simula a v010 que nunca rodou
+    const agora = new Date().toISOString();
+    banco.prepare('INSERT INTO jogador (nome, criado_em) VALUES (?, ?)').run('Ana', agora);
+    banco.exec(`
+      CREATE TABLE servico_conta_degradada (
+        id                      INTEGER PRIMARY KEY,
+        jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
+        servico_id              INTEGER NOT NULL,
+        referencia              TEXT NOT NULL,
+        descricao               TEXT,
+        valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
+        vencimento              TEXT NOT NULL,
+        estado                  TEXT NOT NULL,
+        criado_em               TEXT NOT NULL,
+        atualizado_em           TEXT NOT NULL,
+        cancelado_em            TEXT,
+        recorrencia_id          INTEGER,
+        paid_amount             INTEGER,
+        paid_at                 TEXT,
+        payment_description     TEXT,
+        transaction_id          INTEGER,
+        UNIQUE (servico_id, referencia)
+      ) STRICT
+    `);
+    banco.prepare(`INSERT INTO servico_conta_degradada
+      (jogador_id, servico_id, referencia, valor_esperado_centavos, vencimento, estado, criado_em, atualizado_em)
+      VALUES (1, 1, '2026-09', 5000, '2026-09-10', 'pendente', ?, ?)`).run(agora, agora);
+    banco.exec('DROP TABLE servico_conta');
+    banco.exec('ALTER TABLE servico_conta_degradada RENAME TO servico_conta');
+
+    aplicarMigracoes(banco, MIGRACOES);
+
+    // A conta continua lá: a recriação de `servico` não custou dado do usuário.
+    const contas = banco.prepare('SELECT * FROM servico_conta').all();
+    assert.equal(contas.length, 1, 'a conta não pode sumir na correção');
+    assert.equal(contas[0].servico_id, 1);
+    assert.equal(contas[0].referencia, '2026-09');
+    assert.equal(contas[0].valor_esperado_centavos, 5000);
+    // E a tabela de serviços, que era o que faltava de fato, agora existe.
+    assert.ok(
+      banco.prepare("SELECT 1 AS e FROM sqlite_master WHERE type = 'table' AND name = 'servico'").get(),
+      'a tabela servico foi recriada',
+    );
+    assert.equal(versaoAtual(banco), 15, 'a migração concluiu — a aplicação abre');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 015: órfão impede a restauração da FK, mas nunca impede a aplicação de abrir', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    // Caso defensivo: uma conta apontando para um serviço que não existe
+    // tornaria a cópia com FK declarada ilegível. A prioridade é a aplicação
+    // abrir; a integridade declarativa espera o serviço aparecer.
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 13));
+    banco.exec('DROP TABLE servico');
+    const agora = new Date().toISOString();
+    banco.prepare('INSERT INTO jogador (nome, criado_em) VALUES (?, ?)').run('Ana', agora);
+    banco.exec(`
+      CREATE TABLE servico_conta_degradada (
+        id                      INTEGER PRIMARY KEY,
+        jogador_id              INTEGER NOT NULL REFERENCES jogador(id) ON DELETE CASCADE,
+        servico_id              INTEGER NOT NULL,
+        referencia              TEXT NOT NULL,
+        descricao               TEXT,
+        valor_esperado_centavos INTEGER NOT NULL CHECK (valor_esperado_centavos > 0),
+        vencimento              TEXT NOT NULL,
+        estado                  TEXT NOT NULL,
+        criado_em               TEXT NOT NULL,
+        atualizado_em           TEXT NOT NULL,
+        cancelado_em            TEXT,
+        recorrencia_id          INTEGER,
+        paid_amount             INTEGER,
+        paid_at                 TEXT,
+        payment_description     TEXT,
+        transaction_id          INTEGER,
+        UNIQUE (servico_id, referencia)
+      ) STRICT
+    `);
+    banco.prepare(`INSERT INTO servico_conta_degradada
+      (jogador_id, servico_id, referencia, valor_esperado_centavos, vencimento, estado, criado_em, atualizado_em)
+      VALUES (1, 99, '2026-09', 5000, '2026-09-10', 'pendente', ?, ?)`).run(agora, agora);
+    banco.exec('DROP TABLE servico_conta');
+    banco.exec('ALTER TABLE servico_conta_degradada RENAME TO servico_conta');
+
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.deepEqual(resultado.aplicadas.map((m) => m.versao), [14, 15], 'a v015 não explode com órfão');
+    assert.equal(versaoAtual(banco), 15);
+    // A linha órfã é preservada: a migração não inventa serviço nem apaga conta.
+    assert.equal(banco.prepare('SELECT COUNT(*) AS n FROM servico_conta').get().n, 1);
+    assert.ok(
+      banco.prepare("SELECT 1 AS e FROM sqlite_master WHERE type = 'table' AND name = 'servico'").get(),
+      'a tabela servico existe — a aplicação abre',
+    );
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 015: banco íntegro não é tocado (nenhuma reconstrução, nenhum dado perdido)', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES);
+    const antes = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    const agora = new Date().toISOString();
+    banco.prepare('INSERT INTO jogador (nome, criado_em) VALUES (?, ?)').run('Ana', agora);
+    banco.prepare(`INSERT INTO servico (jogador_id, nome, categoria, valor_esperado_centavos, estado, criado_em, atualizado_em)
+      VALUES (1, 'Internet', 'contas', 5000, 'ativo', ?, ?)`).run(agora, agora);
+    banco.prepare(`INSERT INTO servico_conta
+      (jogador_id, servico_id, referencia, valor_esperado_centavos, vencimento, estado, criado_em, atualizado_em)
+      VALUES (1, 1, '2026-09', 5000, '2026-09-10', 'pendente', ?, ?)`).run(agora, agora);
+
+    // Segunda passagem: a v015 é idempotente e não reconstrói nada.
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.deepEqual(resultado.aplicadas, [], 'nada roda em um banco já completo');
+    assert.deepEqual(resultado.divergencias, [], 'sem divergências em um banco íntegro');
+    const depois = banco
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'servico_conta'")
+      .get().sql;
+    assert.equal(depois, antes, 'a tabela não pode ser reconstruída à toa');
+    assert.equal(banco.prepare('SELECT COUNT(*) AS n FROM servico').get().n, 1, 'o serviço do usuário permanece');
+    assert.equal(banco.prepare('SELECT COUNT(*) AS n FROM servico_conta').get().n, 1, 'a conta do usuário permanece');
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+test('migração 015: aponta a divergência quando uma migração aplicada foi reescrita depois', () => {
+  const banco = abrirConexao({ caminho: ':memory:' });
+  try {
+    aplicarMigracoes(banco, MIGRACOES.slice(0, 14));
+    // A v010 foi reescrita em "criar-tabela-servico" depois de ter rodado como
+    // "criar-tabelas-despesas-recorrentes". O número não muda — o nome muda.
+    banco.prepare('UPDATE schema_migrations SET nome = ? WHERE versao = 10').run('criar-tabelas-despesas-recorrentes');
+
+    const resultado = aplicarMigracoes(banco, MIGRACOES);
+    assert.deepEqual(resultado.divergencias, [
+      { versao: 10, nomeNoBanco: 'criar-tabelas-despesas-recorrentes', nomeNoCodigo: 'criar-tabela-servico' },
+    ]);
+    // Reportar não pode virar bloquear: a aplicação precisa abrir.
+    assert.equal(versaoAtual(banco), 15);
+    assert.ok(
+      banco.prepare("SELECT 1 AS e FROM sqlite_master WHERE type = 'table' AND name = 'servico'").get(),
+      'e a tabela ausente é recriada assim mesmo',
+    );
+  } finally {
+    fecharConexao(banco);
+  }
+});
+
+

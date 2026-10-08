@@ -216,9 +216,10 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 3. janela criada;
 4. renderer carregado;
 5. HTML/CSS/JS carregam (sinal de prontidão do renderer, sem erros de console);
-6. encerramento sem erros;
-7. reinício após encerramento;
-8. nenhum erro inesperado no console.
+6. **módulo de Finanças aberto de verdade** (tela real, via `__irParaFinancas`): exige aviso vazio, histórico renderizado e filtro de categorias populado — foi um `insertBefore(opcao, 0)` na montagem desse filtro que fazia a tela cair em "Falha de comunicação com o núcleo" com ponte e banco intactos;
+7. encerramento sem erros;
+8. reinício após encerramento;
+9. nenhum erro inesperado no console.
 
 **Requisito de ambiente:** sessão gráfica (X11/Wayland) ou `xvfb-run` (`sudo apt install xvfb`) para execução headless.
 
@@ -237,7 +238,7 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 | Aplicação | unidade/integração | casos de uso com repositórios simulados ou banco temporário |
 | Persistência | integração | SQLite em arquivo temporário (Fase 02+) |
 | Progressão (Fase 06) | unidade + integração | `progressao.test.mjs` (domínio), `servico-progressao.test.mjs` (serviço isolado com repositórios/banco fake — transações e ROLLBACK) e `ipc-progressao.test.mjs` (contrato IPC por análise estática) + integração com banco real (teto de atributo, XP alto, reparo atômico, persistência) |
-| Finanças (Fase 08) | unidade + integração | `financa.test.mjs` — domínio (centavos, categorias, saldo, período, orçamento) e ciclo completo com banco real (carteira, transações, edição/exclusão, orçamentos, persistência) |
+| Finanças (Fase 08) | unidade + integração + fumaça | `financa.test.mjs` — domínio (centavos, categorias, saldo, período, orçamento) e ciclo completo com banco real (carteira, transações, edição/exclusão, orçamentos, persistência); smoke end-to-end com Electron (**a tela de Finanças precisa abrir sem erro de console**: aviso vazio, histórico e filtro de categorias renderizados) e, em `interface.test.mjs`, a montagem do filtro por `replaceChildren` sem `insertBefore` com índice |
 | Loja / Lista de Desejos (Fase 09) | unidade + integração | `loja.test.mjs` — domínio (estados, transições, validações, diferença/percentual, mapeamento financeiro) e ciclo completo com banco real (compra atômica via Fase 08, rollback, histórico, cancelamento, persistência) |
 | Recorrências (Fase 10.3) | unidade + integração | `recorrencia.test.mjs` — domínio (frequências, estados, datas, ajuste de dia 31, valores) e ciclo completo com banco real (vínculo com serviço, isolamento, filtros, arquivamento terminal, **saldo inalterado / zero contas / zero transações**, persistência) |
 | Pagamentos (Fase 10.5) | unidade + integração | `pagamento.test.mjs` — domínio (estados pagáveis, isolamento por dono, valor/data, situação derivada) e ciclo completo com banco real (DESPESA via Fase 08, saldo correto, vínculo conta↔transação, duplicidade bloqueada, atomicidade com rollback, isolamento, persistência) |
@@ -292,7 +293,7 @@ verdade em vez de apenas passar.
 ### Estado da suíte
 
 ```text
-npm test → 413 testes · 413 passam · 0 falham
+npm test → 545 testes · 545 passam · 0 falham
 ```
 
 - 398 testes anteriores à fase, sem alteração de resultado — nenhuma regra
@@ -300,10 +301,169 @@ npm test → 413 testes · 413 passam · 0 falham
 - 14 testes novos de contrato de interface;
 - teste de fumaça real do Electron: `rendererPronto: true`,
   `errosConsole: []`, dashboard visível com os valores de uma missão e uma
-  transação recém-criados (fluxos críticos verificados de ponta a ponta).
+  transação recém-criados e **módulo de Finanças aberto sem erro de aviso**
+  (fluxos críticos verificados de ponta a ponta).
+
+## 6.2 Fase 17 — Homologação
+
+A fase 17 ampliou a cobertura sem criar funcionalidade nova. O relatório
+completo está em `REPORTS/homologacao-fase-17.md`.
+
+```text
+npm test                  → 533 testes · 533 passam · 0 falham
+npm run test:homologacao  → 120 testes · 120 passam · 🟢 APTO
+```
+
+### 6.2.1 O que a fase adicionou
+
+| Arquivo | Testes | O que fixa |
+| --- | --- | --- |
+| `tests/criticos/falhas.test.mjs` | 9 | Comportamento de falha: a falha é sinalizada **e nada é gravado** (saldo e tabelas intactos). Cobre registro inexistente, valor/data/categoria inválidos, pagamento duplicado, compra duplicada, recorrência e serviço arquivados, conta cancelada, transição de missão proibida. |
+| `tests/integracao/homologacao/fluxos-completos/ciclo-do-operador.test.mjs` | 1 | Ciclo de 12 etapas: jogador → status → missão → projeto → progressão → finanças → serviço → recorrência → conta → pagamento → transação → carteira → dashboard. Afirma que serviço e conta **não** movem dinheiro, que a geração é idempotente e que o dashboard é somente leitura. |
+| `tests/integracao/homologacao/servicos-contas.test.mjs` | 2 | Serviço → recorrência → conta → pagamento, e que o valor debitado é o **realmente pago**, não o esperado. |
+| `tests/integracao/homologacao/loja-financas.test.mjs` | 2 | Compra vira despesa na carteira, entra no histórico e guarda a diferença entre preço esperado e pago. |
+| `tests/criticos/integridade.test.mjs` (+2) | 2 | CASCADE nas 11 tabelas de negócio e varredura de FK violada / dado órfão com o banco cheio. |
+| `tests/integracao/inicializacao.test.mjs` (+4 asserções) | — | A cadeia serviço → recorrência → geração pela **ponte IPC real**, dentro do teste de fumaça. |
+
+### 6.2.2 Ambiente de homologação estendido
+
+`tests/utils/ambiente-homologacao.mjs` agora reproduz a fiação completa
+de `src/main/main.js` (Fases 01 a 16). Antes ligava só Fases 01–08, o que
+impedia verificar justamente a cadeia mais difícil do sistema.
+
+### 6.2.3 Testes que envelheceram
+
+A suíte de homologação ficou vermelha ao ser sincronizada com a `dev`:
+`fase-02` fixava o schema em v7 (hoje v14) e `fase-09-loja-pendente`
+afirmava que a loja não existia. Ambos foram corrigidos **derivando do
+código** (`MIGRACOES.length`) em vez de fixar números, para não quebrarem
+de novo.
+
+### 6.2.4 Bugs encontrados por estes testes
+
+| Sev. | Onde | Sintoma |
+| --- | --- | --- |
+| MÉDIO | `dominio/financa.js` | `10/09/2026` era reinterpretado como 2026-10-09 (mês/dia), gravando data errada sem aviso. |
+| MÉDIO | `servico-contas.js`, `servico-recorrencias.js` | Serviço arquivado ainda aceitava contas e recorrências; a regra existia só na interface. |
+| BAIXO | `dominio/loja.js` | 10 mensagens de erro sem acentuação chegavam ao usuário (único módulo do domínio assim). |
 
 ## 7. Regras
 
 - **Não criar testes de funcionalidades que ainda não existem.**
 - Cobertura de código: meta a definir na Fase 17 (o runner nativo oferece `--experimental-test-coverage` quando necessário).
 - `npm test` deve sempre terminar sem erros em `dev`.
+
+## 8. Testes de portabilidade (Fase 18)
+
+A Fase 18 é uma **fase de infraestrutura de distribuição**, não de domínio.
+Os testes estão distribuídos em três níveis:
+
+### 8.1 Unidade — `tests/unidade/portabilidade.test.mjs` (8 testes)
+
+Cobre `src/main/portabilidade.js` (módulo puro, sem Electron), dentro da
+suíte normal (`npm test`):
+
+- **`PULSO_DIRETORIO_DADOS` tem precedência absoluta** — se definido, é o
+  diretório, ignorando marcador e perfil do usuário.
+- **Modo portátil por variável** — `PULSO_PORTABLE=1` (parâmetro `portavel`
+  ou a própria variável de ambiente) leva a `<raiz>/data` mesmo sem
+  marcador no disco (raiz = diretório de trabalho atual).
+- **Modo portátil por marcador** — `pulso-portatil.json` acima do
+  executável ativa o modo portátil e resolve `<raiz>/data`; a raiz é
+  exposta em `raizPacote` (usada pelo `main.js` para achar `runtime/`).
+- **Padrão do sistema** — sem variável e sem marcador, o diretório fica em
+  `<appData>/pulso` (o perfil do usuário), o modo **não** é portátil e
+  `raizPacote` é `''`.
+- **Marcador ausente não engana** — `localizarRaizPacote` devolve string
+  vazia quando não há marcador, evitando detecção portátil falsa.
+
+### 8.2 Ciclo de vida (validação manual executada nesta fase)
+
+Procedimento reproduzível (Linux — **VALIDADO** nesta fase):
+
+```bash
+# Etapas 1–3: executar, criar dados e fechar — sobre o pacote recém-montado
+npm run build:portable
+PULSO_PORTABLE=1 out/pack/PULSO-0.1.0-portatil/Linux/PULSO --teste-fumaca
+# → Dados do usuário: <pacote>/data (portátil: sim — motivo: ambiente)
+# → Banco de dados criado (schema v15, 15 migração(ões) nesta execução)
+# → PULSO_FUMACA:{"ok":true,...} → jogador "Operador Teste", missão,
+#   transação R$ 123,45 e serviço criados no banco portátil
+# → data/pulso.db criado; runtime/ populado com os caches do Electron
+
+# Etapa 4: mover o pacote
+cp -r out/pack/PULSO-0.1.0-portatil /tmp/pulso-pendrive
+
+# Etapa 5: executar novamente — o APP REAL, sem variável (detecção por marcador)
+/tmp/pulso-pendrive/Linux/PULSO &
+# → Dados do usuário: /tmp/pulso-pendrive/data (portátil: sim — motivo: marcador)
+# → Banco de dados reutilizado (schema v15, 0 migração(ões) nesta execução)
+
+# Etapa 6: conferir os dados com leitura somente-leitura do SQLite
+# → jogador: Operador Teste | missão: Missão do teste de fumaça
+# → transacao: receita 12345 centavos "Receita do teste de fumaça"
+# → servico: Servico do teste de fumaca | schema_migrations: 15
+# → PRAGMA integrity_check = ok
+
+# Etapa 7: perfil do sistema operacional intacto
+stat -c '%Y' ~/.config/pulso   # mtime idêntico antes e depois das execuções
+```
+
+Notas do procedimento:
+
+- a fumaça usa `PULSO_PORTABLE=1` de propósito: é a única forma de ela
+  escrever **no pacote** (por padrão ela isola o banco em diretório
+  temporário para nunca tocar no banco real);
+- a fumaça exige banco virgem (`preparado` = "não havia jogador"); com
+  dados já existentes ela reporta `ok:false` por contrato — por isso a
+  **etapa 5 usa o aplicativo real**, que é exatamente o fluxo do usuário;
+- a etapa 5 valida o ramo de produção portátil (`userData = <raiz>/runtime`,
+  banco = `<raiz>/data`), o mesmo ramo que um pendrive usaria.
+
+O que este ciclo afirma:
+
+| Etapa (pendrive) | Verificação | Status |
+| --- | --- | --- |
+| 1. Executar | app inicia, DB é criado em `<pacote>/data/` | 🟢 VALIDADO |
+| 2. Criar dados | fumaça cria jogador/missão/transação/serviço no DB portátil | 🟢 VALIDADO |
+| 3. Fechar | encerra com código 0 (`ok:true`) | 🟢 VALIDADO |
+| 4. Mover o pacote | `cp -r` para outro caminho | 🟢 VALIDADO |
+| 5. Executar novamente | `Banco de dados reutilizado (schema v15, 0 migrações)`, motivo `marcador` | 🟢 VALIDADO |
+| 6. Dados permanecem | mesmos registros no SQLite movido + `integrity_check = ok` | 🟢 VALIDADO |
+| 7. Não grava no perfil do SO | mtime de `~/.config/pulso` inalterado; `data/` contém só o banco | 🟢 VALIDADO |
+
+**Pacotes gerados (além do pacote fonte):**
+
+| Verificação | `build:linux` (tar.gz) | `build:windows` (zip) |
+| --- | --- | --- |
+| Launcher do pacote | 🟢 `./iniciar/iniciar-linux.sh --teste-fumaca` → `PULSO_FUMACA ok:true` | 🟢 `wine cmd /c iniciar\iniciar-windows.bat --teste-fumaca` → `ok:true` |
+| Aplicativo real | 🟢 motivo `marcador`; `data/pulso.db` + `runtime/` no pacote; perfil `~/.config/pulso` intacto | 🟢 sob Wine: motivo `marcador`; `Z:\…\data\pulso.db` + `runtime/` no pacote |
+| Banco compartilhado Linux ↔ Windows | 🟢 banco criado no Linux | 🟢 `.exe` abriu o banco do Linux: `reutilizado (schema v15, 0 migrações)` |
+| Execução em Windows real | — | 🔴 pendente (P-036) |
+
+### 8.3 Migração de banco existente
+
+- `tests/unidade/migracoes.test.mjs` (existente) afirma a cadeia completa de
+  15 migrações até o schema v15.
+- Execução do pacote portátil sobre banco existente confirmou
+  `reutilizado (schema v15, 0 migrações)` — ou seja, **a migração não
+  recria nem apaga o banco do usuário**.
+
+### 8.4 O que NÃO foi validado aqui
+
+- **Windows real**: a **build** (`build:windows`, executada no Ubuntu com o
+  runtime win32 extraído do cache do Electron) e a **execução** foram
+  validadas **sob Wine 10** — fumaça `ok:true`, launcher `.bat`, aplicativo
+  real gravando `data/` + `runtime/` no pacote e banco do Linux reutilizado
+  (`schema v15, 0 migrações`). Falta executar em **máquina Windows real**
+  (P-036). Ver `docs/portabilidade.md` §9.
+- **AppImage**: requer `appimagetool`/`linuxdeployqt` (não presentes);
+  a distribuição Linux desta fase é o tar.gz portátil.
+
+### 8.5 Comandos rápidos
+
+```bash
+npm test                                          # suíte completa (unidade+integração) — 553 testes
+npm run build:portable                            # monta o pacote portátil
+npm run build:linux                               # gera dist/…-linux-portatil.tar.gz
+```

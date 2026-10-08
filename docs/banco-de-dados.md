@@ -27,20 +27,26 @@ O aviso `ExperimentalWarning: SQLite` é inofensivo,e registrado aqui. Se a API 
 
 ##  ̈3. Localização do banco (dinâmica,,nunca no repositório
 
-O processo principal resolve o diretório de dados via Electron:
+O processo principal resolve o diretório de dados em
+`src/main/portabilidade.js` (Fase 18) e só então chama
+`inicializarBanco({ diretorioDados })`:
 
- `app.getPath('appData') + '/pulso'` → `app.setPath('userData', ...)`.
+1. `PULSO_DIRETORIO_DADOS` (variável) → caminho explícito;
+2. modo portátil (`PULSO_PORTABLE=1` ou marcador `pulso-portatil.json` acima
+   do executável) → `<raiz-do-pacote>/data`;
+3. padrão → `app.getPath('appData') + '/pulso'` → `app.setPath('userData', ...)`.
 
 
 
 | Ambiente | Local efetivo(Linux) |
 | --- | --- |
 | Desenvolvimento/produção | `~/.config/pulso/pulso.db` |
+| Modo portátil (pendrive) | `<pacote>/data/pulso.db` (fora do perfil do usuário) |
 | Teste de fumaça | diretório temporário(`/tmp/pulso-fumaca-*`) criado e descartado por execução |
 
 
 
-Em outros sistemas operacionais o caminho acompanha o padrão da plataforma(Fase 18. O núcleo(`src/core/database/`) **nunca** resolve caminhos—recebe o diretório pronto; assim é testável sem Electron. Desde a Fase 03, `PULSO_DIRETORIO_DADOS` permite apontar outro diretório(útil em testes manuais.
+Em outros sistemas operacionais o padrão `appData/pulso` acompanha a plataforma e o modo portátil é idêntico (o pacote é autocontido). O núcleo(`src/core/database/`) **nunca** resolve caminhos—recebe o diretório pronto; assim é testável sem Electron. Desde a Fase 03, `PULSO_DIRETORIO_DADOS` permite apontar outro diretório(útil em testes manuais). Ver `docs/portabilidade.md` para o guia completo.
 
 **Arquivos gerados** (modo WAL): `pulso.db` + `pulso.db-wal` + `pulso.db-shm`. Os três são ignorados pelo Git(`*.db`, `*.db-wal`, `*.db-shm` no `.gitignore`.
 
@@ -53,9 +59,9 @@ Em outros sistemas operacionais o caminho acompanha o padrão da plataforma(Fase
 | `busy_timeout` | `5000` | locks transitórios esperam até 5 s em vez de falhar de imediato |
 | `synchronous` | `NORMAL` | par recomendado com WAL: seguro contra falha da aplicação; risco residual apenas em queda de energia(janela mínima) |
 
-##  ̈5. Schema atual(versão 14
+##  ̈5. Schema atual(versão 15
 
-Infraestrutura + entidades de negócio implementadas até a **Fase 10.5** (cada fase acrescenta sua migração ao final da lista — ver `src/core/database/migracoes.js`).
+Infraestrutura + entidades de negócio implementadas até a **Fase 10.5**, mais a autocorreção do schema legado (migração 015 — ver abaixo). Cada fase acrescenta sua migração ao final da lista (ver `src/core/database/migracoes.js`).
 
 
 
@@ -325,9 +331,20 @@ ALTER TABLE servico_conta_pagamento RENAME TO servico_conta;
 -- UMA transação só pode estar vinculada a UMA conta (não duplica o débito)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_servico_conta_transaction
   ON servico_conta(transaction_id) WHERE transaction_id IS NOT NULL;
+
+-- migração 015 "criar-servico-ausente-e-restaurar-integridade-do-vinculo"
+-- autocorreção de bancos ficou com a v010 registrada mas SEM a tabela servico
+-- (a v010 foi reformulada de "despesas recorrentes" para "serviços" e
+--  reescrita no lugar). O mecanismo pula a v010 pelo NÚMERO, então a tabela
+--  nunca era criada e a aplicação morria com "no such table: servico".
+--  Duas etapas independentes; em um banco íntegro NADA é alterado:
+--  1) cria a tabela `servico` (definição canônica da v010) se faltar;
+--  2) reconstrói `servico_conta` para restaurar a FK de serviço perdida
+--     quando a v014 degradou a coluna — apenas se não houver conta órfã.
+CREATE TABLE servico (...);  -- mesma definição da migração 010
 ```
 
-- `schema_migrations` responde "qual é a versão atual do banco?" (`SELECT MAX(versao)` . Atual: **v14**..
+- `schema_migrations` responde "qual é a versão atual do banco?" (`SELECT MAX(versao)` . Atual: **v15**..
 - `meta` guarda metadados técnico-operacionais(chave/valor. **Não** é configuração de ambiente(,isso vive em `config/*.json`) nem dado de sistema de jogo..
 
 - `jogador` (ver `docs/jogador.md`): identidade do operador — entidade central do PULSO; single-player imposta pelo Serviço,, com schema aberto a evolução futura.
@@ -336,7 +353,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_servico_conta_transaction
 - `orcamento` (ver `docs/financas.md`): planejamento por categoria de despesa num período (limites inclusivos; `CHECK fim >= inicio`) — não cria dinheiro e não altera saldo.
 - `desejo` (ver `docs/loja.md`): item da lista de desejos (Fase 09) — preço esperado/pago em centavos inteiros positivos, estado com `CHECK` de domínio e `transacao_id` apontando para a despesa criada pela compra (`ON DELETE SET NULL` preserva o histórico do desejo mesmo se a transação for excluída manualmente no financeiro). Desejo **nunca** movimenta saldo por si só — só a compra, via transação.
 - `servico` (Fase 10.1): estrutura permanente de serviço recorrente (ex.: Internet) — o "molde" do qual as contas derivam.
-- `servico_conta` (ver `docs/contas-despesas.md` e `docs/pagamentos.md`, Fases 10.2 e 10.5, migrações 011 e 014, schema **v14**): ocorrência concreta de um serviço (ex.: Internet · `2026-09` · vence `2026-09-15` · R$ 120,00 em centavos). `servico_id` com `ON DELETE RESTRICT`, `UNIQUE(servico_id, referencia)` contra duplicatas, estado persistido `pendente`/`paga`/`cancelada` (`VENCIDA` é derivada, nunca gravada). A Fase 10.5 acrescenta o desfecho do pagamento: `paid_amount` (> 0 — o valor REALMENTE pago, pode diferir do esperado), `paid_at`, `payment_description` e `transaction_id` → `transacao(id)` (`ON DELETE SET NULL` + índice único parcial: uma transação só debita uma conta), com `CHECK estado <> 'paga' OR (paid_amount IS NOT NULL AND paid_at IS NOT NULL)`. Criar/editar/cancelar **não** cria transação e **não** altera carteira/saldo — só o PAGAMENTO o faz, pelo fluxo da Fase 08.
+- `servico_conta` (ver `docs/contas-despesas.md` e `docs/pagamentos.md`, Fases 10.2 e 10.5, migrações 011, 014 e 015, schema **v15**): ocorrência concreta de um serviço (ex.: Internet · `2026-09` · vence `2026-09-15` · R$ 120,00 em centavos). `servico_id` com `ON DELETE RESTRICT`, `UNIQUE(servico_id, referencia)` contra duplicatas, estado persistido `pendente`/`paga`/`cancelada` (`VENCIDA` é derivada, nunca gravada). A Fase 10.5 acrescenta o desfecho do pagamento: `paid_amount` (> 0 — o valor REALMENTE pago, pode diferir do esperado), `paid_at`, `payment_description` e `transaction_id` → `transacao(id)` (`ON DELETE SET NULL` + índice único parcial: uma transação só debita uma conta), com `CHECK estado <> 'paga' OR (paid_amount IS NOT NULL AND paid_at IS NOT NULL)`. Criar/editar/cancelar **não** cria transação e **não** altera carteira/saldo — só o PAGAMENTO o faz, pelo fluxo da Fase 08.
 - `servico_recorrencia` (ver `docs/recorrencias.md`, Fase 10.3, migração 012, schema **v12**): a REGRA DE REPETIÇÃO de um serviço (frequência `mensal`…`anual` com `CHECK`, início obrigatório, término opcional, dia de vencimento 1–31, valor esperado > 0 em centavos). `servico_id` com `ON DELETE RESTRICT`; estado persistido `ativa`/`inativa`/`arquivada` com `CHECK`; `arquivado_em` marca o fim. É apenas **regra** — nenhuma conta, transação ou movimento de saldo é derivado dela nesta subfase (geração na Fase 10.4).
 - `STRICT` impõe tipagem real nas colunas(SQLite ≥  3.37; embutido aqui: 3.50.4.
 
@@ -351,6 +368,21 @@ Implementado em `src/core/database/migracoes.js`:
 - não há migrações de reversão: reverter = restaurar backup (seção 9.
 
 **Regra de ouro:** migração aplicada **nunca** é editada. Precisou mudar o schema? Nova migração no fim da lista (`MIGRACOES`).
+
+**O custo de quebrar essa regra (a v010, e a lição):** a regra existe porque o
+mecanismo decide o que já rodou pelo **número** da versão, não pelo nome. Quando
+a v010 foi reformulada de "despesas recorrentes" para "serviços" e reescrita no
+lugar, os bancos criados antes continuaram pulando a v010 pelo número — e a
+tabela `servico` nunca mais foi criada, com a aplicação travando em
+`no such table: servico` (v014 registrada, zero migrações pendentes). Duas
+proteções existem desde então:
+
+- a migração 015, que confere o **dicionário do SQLite** (e não o controle de
+  versões) e recria o que faltar;
+- `aplicarMigracoes` agora devolve `divergencias` quando o nome gravado no banco
+  difere do nome que o código conhece para a mesma versão, e o `main` registra
+  um aviso na inicialização. Reportar, nunca bloquear: quem corrige é sempre uma
+  migração nova.
 
 **Como uma fase futura adiciona sua migração** (exemplo real da Fase 03):
 

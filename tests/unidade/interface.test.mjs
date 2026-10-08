@@ -32,6 +32,59 @@ const scriptsRenderer = readdirSync(join(dirRenderer, 'js'))
     fonte: readFileSync(join(dirRenderer, 'js', n), 'utf-8'),
   }));
 
+const preload = readFileSync(join(raiz, 'src', 'main', 'preload.cjs'), 'utf-8');
+
+/** Divide os argumentos de uma chamada que começa no `(` de abertura. */
+function argumentos(chave) {
+  const corpo = chave.slice(1);
+  const partes = [];
+  let atual = '';
+  let profundidade = 0;
+  let texto = null; // delimitador de string ativa ('"', "'" ou '`')
+  let escapando = false;
+
+  for (const caractere of corpo) {
+    if (texto) {
+      if (escapando) escapando = false;
+      else if (caractere === '\\') escapando = true;
+      else if (caractere === texto) texto = null;
+      atual += caractere;
+      continue;
+    }
+    if (caractere === '"' || caractere === "'" || caractere === '`') {
+      texto = caractere;
+      atual += caractere;
+    } else if ('([{'.includes(caractere)) {
+      profundidade += 1;
+      atual += caractere;
+    } else if (caractere === ')' && profundidade === 0) {
+      break; // fecha a chamada
+    } else if (')]}'.includes(caractere)) {
+      profundidade -= 1;
+      atual += caractere;
+    } else if (caractere === ',' && profundidade === 0) {
+      partes.push(atual);
+      atual = '';
+    } else {
+      atual += caractere;
+    }
+  }
+  const ultima = atual.trim();
+  if (partes.length === 0) return ultima === '' ? [] : [ultima];
+  return [...partes.map((p) => p.trim()), ultima];
+}
+
+/** Aritidade declarada de `ns.funcao` no preload (0 quando não existe). */
+function aridadeNoPreload(ns, funcao) {
+  for (const bloco of preload.matchAll(/(\w+):\s*Object\.freeze\(\{([\s\S]*?)\n\s*\}\)/g)) {
+    if (bloco[1] !== ns) continue;
+    for (const metodo of bloco[2].matchAll(/(\w+):\s*\(([^)]*)\)\s*=>/g)) {
+      if (metodo[1] === funcao) return argumentos(`(${metodo[2]})`).length;
+    }
+  }
+  return -1;
+}
+
 // ---- 1. Todo feedback é escrito de forma tipada ----
 
 test('todo .aviso do HTML é escrito por avisar() ou limparAviso()', () => {
@@ -122,6 +175,79 @@ test('todo id consultado pelo JS existe no HTML', () => {
   assert.deepEqual(faltando, [], `ids consultados e inexistentes: ${faltando.join(', ')}`);
 });
 
+test('nenhum `.value` é lido de elemento que não é campo de formulário', () => {
+  // O título da missão chegou a ser lido de `#formulario-missao-titulo`, que é o
+  // `<h1>` da tela, e não de `#campo-missao-titulo`, que é o `<input>` do
+  // formulário. Como `<h1>` não tem `value`, o núcleo recebia `undefined` e
+  // respondia "O título da missão é obrigatório." com o campo preenchido.
+  // Ler ou escrever `.value` exige um campo de verdade (input/select/textarea).
+  const campos = new Set(
+    [...html.matchAll(/<(?:input|select|textarea)\b[^>]*\bid="([^"]+)"/g)].map((m) => m[1]),
+  );
+  const idDe = new Map();
+  for (const { fonte } of scriptsRenderer) {
+    for (const m of fonte.matchAll(/elementos\.(\w+)\s*=\s*consultar(?:Elemento\w+)?\(\s*'([^']+)'/g)) {
+      idDe.set(m[1], m[2]);
+    }
+  }
+  const errados = [];
+  for (const { nome, fonte } of scriptsRenderer) {
+    for (const m of fonte.matchAll(/elementos\.(\w+)\.value\b/g)) {
+      const id = idDe.get(m[1]);
+      if (id && !campos.has(id)) errados.push(`${nome}: #${id} via elementos.${m[1]}`);
+    }
+  }
+  assert.deepEqual(errados, [], `elementos sem "value" usados como campo: ${errados.join(', ')}`);
+});
+
+test('toda chamada à ponte cabe na assinatura declarada no preload', () => {
+  // `window.pulso.missao.obter(jogadorAtual.id, id)` passava DOIS
+  // argumentos para uma ponte que aceita UM. O `id` da missão era descartado
+  // e toda missão aberta caía no MESMO registro (o de id igual ao do
+  // jogador). Argumento a mais na ponte é bug silencioso: não dá erro, dá
+  // resultado errado.
+  const errados = [];
+  let chamadas = 0;
+
+  for (const { nome, fonte } of scriptsRenderer) {
+    // `ponteX()` devolve `window.pulso.<ns>`: resolve o namespace pelo corpo.
+    const pontePara = new Map();
+    for (const m of fonte.matchAll(
+      /function\s+(ponte\w*)\(\)\s*\{[\s\S]{0,400}?return window\.pulso\.(\w+);/g,
+    )) {
+      pontePara.set(m[1], m[2]);
+    }
+
+    const chamadasPonte = [
+      ...[...fonte.matchAll(/window\.pulso\.(\w+)\.(\w+)\(/g)].map(
+        (m) => [m[1], m[2], m.index + m[0].length - 1],
+      ),
+      ...[...fonte.matchAll(/\b(ponte\w*)\(\)\.(\w+)\(/g)]
+        .filter((m) => pontePara.has(m[1]))
+        .map((m) => [pontePara.get(m[1]), m[2], m.index + m[0].length - 1]),
+    ];
+
+    for (const [ns, funcao, inicio] of chamadasPonte) {
+      const declarados = aridadeNoPreload(ns, funcao);
+      if (declarados < 0) {
+        errados.push(`${nome}: window.pulso.${ns}.${funcao}() não existe no preload`);
+        continue;
+      }
+      const usados = argumentos(fonte.slice(inicio)).length;
+      chamadas += 1;
+      if (usados > declarados) {
+        errados.push(
+          `${nome}: window.pulso.${ns}.${funcao}() recebe ${usados}, ` +
+            `mas o preload declara ${declarados}`,
+        );
+      }
+    }
+  }
+
+  assert.ok(chamadas >= 20, `esperava cobrir a ponte, analisou ${chamadas} chamadas`);
+  assert.deepEqual(errados, [], `chamadas incompatíveis com a ponte: ${errados.join(' | ')}`);
+});
+
 test('não há id duplicado no HTML', () => {
   const vistos = new Set();
   const duplicados = [];
@@ -130,6 +256,47 @@ test('não há id duplicado no HTML', () => {
     vistos.add(m[1]);
   }
   assert.deepEqual(duplicados, [], `ids duplicados: ${duplicados.join(', ')}`);
+});
+
+/** Remove comentários de linha e de bloco: o teste de DOM lê CÓDIGO, não prosa. */
+function semComentarios(fonte) {
+  return fonte.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+}
+
+test('nenhum insertBefore recebe índice no lugar do Node de referência', () => {
+  // `insertBefore(opcao, 0)` é `insertBefore(opcao, <índice>)`: o DOM exige um
+  // NODE de referência, não uma posição. Na tela de Finanças esse TypeError
+  // derrubou `carregarFinancas` no meio — o histórico nunca carregava e a tela
+  // mostrava "Falha de comunicação com o núcleo" com ponte e banco intactos.
+  // Os comentários são removidos antes: citar o bug não é reincidir nele.
+  const errados = [];
+  for (const { nome, fonte } of scriptsRenderer) {
+    const codigo = semComentarios(fonte);
+    for (const m of codigo.matchAll(/\binsertBefore\(/g)) {
+      const referencia = argumentos(codigo.slice(m.index + 'insertBefore'.length))[1] ?? '';
+      if (/^-?\d+$/.test(String(referencia).trim())) {
+        errados.push(`${nome}: insertBefore(…, ${String(referencia).trim()})`);
+      }
+    }
+  }
+  assert.deepEqual(errados, [], `insertBefore com índice: ${errados.join(' | ')}`);
+});
+
+test('o filtro de categorias é reconstruído de uma vez só', () => {
+  // A opção "TODAS AS CATEGORIAS" precisa entrar na lista montada pelo
+  // `replaceChildren`. Inserida depois — e por índice —, ela derrubava a tela
+  // de Finanças inteira com "Falha de comunicação com o núcleo".
+  const principal = semComentarios(
+    scriptsRenderer.find((s) => s.nome === 'principal.js').fonte,
+  );
+  const corpo = principal.match(/function preencherFiltroCategoria\(\) \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(corpo, 'preencherFiltroCategoria() não encontrada em principal.js');
+  assert.match(corpo, /replaceChildren\(/, 'o filtro precisa ser reconstruído com replaceChildren');
+  assert.doesNotMatch(
+    corpo,
+    /insertBefore\(/,
+    'inserir a opção "TODAS AS CATEGORIAS" depois do replaceChildren quebra a tela de Finanças',
+  );
 });
 
 test('todo campo de formulário tem label associado', () => {

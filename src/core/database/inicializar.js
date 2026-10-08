@@ -30,6 +30,7 @@ export const NOME_ARQUIVO_BANCO = 'pulso.db';
  *   criado: boolean,
  *   versaoSchema: number,
  *   migracoesAplicadas: Array<{versao: number, nome: string}>,
+ *   divergencias: Array<{versao: number, nomeNoBanco: string, nomeNoCodigo: string}>,
  *   fechar: () => void
  * }}
  */
@@ -43,7 +44,7 @@ export function inicializarBanco({ diretorioDados, nomeArquivo = NOME_ARQUIVO_BA
   const banco = abrirConexao({ caminho });
 
   try {
-    const { aplicadas } = aplicarMigracoes(banco, migracoes);
+    const { aplicadas, divergencias } = aplicarMigracoes(banco, migracoes);
 
     const integridade = verificarIntegridade(banco);
     if (!integridade.ok) {
@@ -56,6 +57,7 @@ export function inicializarBanco({ diretorioDados, nomeArquivo = NOME_ARQUIVO_BA
       criado,
       versaoSchema: versaoAtual(banco),
       migracoesAplicadas: aplicadas,
+      divergencias,
       fechar() {
         fecharConexao(banco);
       },
