@@ -13,7 +13,11 @@
     "test:fases": "node scripts/homologacao/executar.mjs --grupo=fases",
     "test:integracao": "node scripts/homologacao/executar.mjs --grupo=integracao",
     "test:criticos": "node scripts/homologacao/executar.mjs --grupo=criticos",
-    "verificar-ambiente": "node scripts/verificar-ambiente.mjs"
+    "verificar-ambiente": "node scripts/verificar-ambiente.mjs",
+    "build": "node scripts/build-portable.mjs",
+    "build:portable": "npm run build -- portatil",
+    "build:linux": "npm run build -- linux",
+    "build:windows": "npm run build -- windows"
   },
   "engines": {
     "node": ">=20.0.0",
