@@ -14,7 +14,7 @@
  */
 
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import registro from './registro.js';
@@ -80,20 +80,56 @@ const ROTULOS_ESTADOS_LOJA = ESTADOS_DESEJO_ROTULOS;
 import { ErroValidacao, ErroConflito, ErroTransicao } from '../core/erros.js';
 import canais from './canais.cjs';
 
+import { resolverDiretórioDados, PULSO_DIRETORIO_DADOS, PULSO_PORTABLE } from './portabilidade.js';
+
 const MODO_TESTE_FUMACA = process.argv.includes('--teste-fumaca');
 const ambiente = MODO_TESTE_FUMACA ? 'teste' : determinarAmbiente({ isPackaged: app.isPackaged });
 
-// Diretório de dados do usuário: resolvido dinamicamente pelo sistema
-// operacional (appData/pulso), fora do repositório. No teste de fumaça,
-// um diretório temporário isolado é usado para não tocar no banco real.
-// PULSO_DIRETORIO_DADOS permite testes manuais com banco próprio.
-if (MODO_TESTE_FUMACA) {
+// Diretório de dados do PULSO: resolvido centralizadamente em
+// `portabilidade.js` (Fase 18). Regras de ordem:
+//   1. PULSO_DIRETORIO_DADOS → diretório explícito;
+//   2. Modo portátil → <raiz-do-pacote>/data;
+//   3. Padrão → <appData>/pulso.
+// O módulo de persistência (src/core/database) nunca resolve caminhos:
+// ele recebe `diretorioDados` pronto, garantindo que o banco não fique preso
+// no repositório, nem no perfil do usuário em modo portátil.
+const appData = app.getPath('appData');
+const exeDir = app.getPath('exe');
+const { portable, motivo, diretorioDados, raizPacote } = resolverDiretórioDados({
+  explicito: process.env[PULSO_DIRETORIO_DADOS],
+  exeDir,
+  appData,
+});
+
+let bancoDados;
+if (MODO_TESTE_FUMACA && process.env[PULSO_PORTABLE] === '1' && portable) {
+  // Fumaça forçada em modo portátil: reproduz o pacote real — banco em
+  // <raiz>/data (viaja com o pacote) e caches do Electron em
+  // <raiz>/runtime (descartáveis). Nada cai no perfil do sistema operacional.
+  app.setPath('userData', join(raizPacote, 'runtime'));
+  bancoDados = diretorioDados;
+} else if (MODO_TESTE_FUMACA) {
+  // Fumaça normal: diretório temporário isolado, sempre, para não
+  // tocar no banco real nem no pacote portátil.
   app.setPath('userData', mkdtempSync(join(tmpdir(), 'pulso-fumaca-')));
-} else if (process.env.PULSO_DIRETORIO_DADOS) {
-  app.setPath('userData', process.env.PULSO_DIRETORIO_DADOS);
+  bancoDados = app.getPath('userData');
+} else if (portable) {
+  // Portátil: userData dentro do pacote (runtime/) e banco em <raiz>/data —
+  // o perfil do sistema operacional permanece intacto.
+  app.setPath('userData', join(raizPacote, 'runtime'));
+  bancoDados = diretorioDados;
 } else {
-  app.setPath('userData', join(app.getPath('appData'), 'pulso'));
+  // Instalação tradicional: userData e banco no diretório do usuário.
+  app.setPath('userData', join(appData, 'pulso'));
+  bancoDados = diretorioDados;
 }
+mkdirSync(app.getPath('userData'), { recursive: true });
+
+const fumacaIsolada = MODO_TESTE_FUMACA && bancoDados !== diretorioDados;
+registro.info(
+  `Dados do usuário: ${bancoDados} (portátil: ${portable ? 'sim' : 'não'} — motivo: ${motivo}` +
+    `${fumacaIsolada ? '; fumaça isolada em temporário' : ''}).`,
+);
 
 let janelaPrincipal = null;
 let configuracao = null;
@@ -937,7 +973,7 @@ async function aoIniciar() {
 
   // Banco antes da janela: sem memória confiável, a aplicação não inicia.
   try {
-    estadoBanco = inicializarBanco({ diretorioDados: app.getPath('userData') });
+    estadoBanco = inicializarBanco({ diretorioDados: bancoDados });
     registro.info(
       `Banco de dados ${estadoBanco.criado ? 'criado' : 'reutilizado'} (schema v${estadoBanco.versaoSchema}, ${estadoBanco.migracoesAplicadas.length} migração(ões) nesta execução).`,
     );
