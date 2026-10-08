@@ -216,9 +216,10 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 3. janela criada;
 4. renderer carregado;
 5. HTML/CSS/JS carregam (sinal de prontidão do renderer, sem erros de console);
-6. encerramento sem erros;
-7. reinício após encerramento;
-8. nenhum erro inesperado no console.
+6. **módulo de Finanças aberto de verdade** (tela real, via `__irParaFinancas`): exige aviso vazio, histórico renderizado e filtro de categorias populado — foi um `insertBefore(opcao, 0)` na montagem desse filtro que fazia a tela cair em "Falha de comunicação com o núcleo" com ponte e banco intactos;
+7. encerramento sem erros;
+8. reinício após encerramento;
+9. nenhum erro inesperado no console.
 
 **Requisito de ambiente:** sessão gráfica (X11/Wayland) ou `xvfb-run` (`sudo apt install xvfb`) para execução headless.
 
@@ -237,7 +238,7 @@ Ele inicia a aplicação, cria a janela, carrega o renderer, valida a ponte IPC,
 | Aplicação | unidade/integração | casos de uso com repositórios simulados ou banco temporário |
 | Persistência | integração | SQLite em arquivo temporário (Fase 02+) |
 | Progressão (Fase 06) | unidade + integração | `progressao.test.mjs` (domínio), `servico-progressao.test.mjs` (serviço isolado com repositórios/banco fake — transações e ROLLBACK) e `ipc-progressao.test.mjs` (contrato IPC por análise estática) + integração com banco real (teto de atributo, XP alto, reparo atômico, persistência) |
-| Finanças (Fase 08) | unidade + integração | `financa.test.mjs` — domínio (centavos, categorias, saldo, período, orçamento) e ciclo completo com banco real (carteira, transações, edição/exclusão, orçamentos, persistência) |
+| Finanças (Fase 08) | unidade + integração + fumaça | `financa.test.mjs` — domínio (centavos, categorias, saldo, período, orçamento) e ciclo completo com banco real (carteira, transações, edição/exclusão, orçamentos, persistência); smoke end-to-end com Electron (**a tela de Finanças precisa abrir sem erro de console**: aviso vazio, histórico e filtro de categorias renderizados) e, em `interface.test.mjs`, a montagem do filtro por `replaceChildren` sem `insertBefore` com índice |
 | Loja / Lista de Desejos (Fase 09) | unidade + integração | `loja.test.mjs` — domínio (estados, transições, validações, diferença/percentual, mapeamento financeiro) e ciclo completo com banco real (compra atômica via Fase 08, rollback, histórico, cancelamento, persistência) |
 | Recorrências (Fase 10.3) | unidade + integração | `recorrencia.test.mjs` — domínio (frequências, estados, datas, ajuste de dia 31, valores) e ciclo completo com banco real (vínculo com serviço, isolamento, filtros, arquivamento terminal, **saldo inalterado / zero contas / zero transações**, persistência) |
 | Pagamentos (Fase 10.5) | unidade + integração | `pagamento.test.mjs` — domínio (estados pagáveis, isolamento por dono, valor/data, situação derivada) e ciclo completo com banco real (DESPESA via Fase 08, saldo correto, vínculo conta↔transação, duplicidade bloqueada, atomicidade com rollback, isolamento, persistência) |
@@ -292,7 +293,7 @@ verdade em vez de apenas passar.
 ### Estado da suíte
 
 ```text
-npm test → 413 testes · 413 passam · 0 falham
+npm test → 545 testes · 545 passam · 0 falham
 ```
 
 - 398 testes anteriores à fase, sem alteração de resultado — nenhuma regra
@@ -300,7 +301,8 @@ npm test → 413 testes · 413 passam · 0 falham
 - 14 testes novos de contrato de interface;
 - teste de fumaça real do Electron: `rendererPronto: true`,
   `errosConsole: []`, dashboard visível com os valores de uma missão e uma
-  transação recém-criados (fluxos críticos verificados de ponta a ponta).
+  transação recém-criados e **módulo de Finanças aberto sem erro de aviso**
+  (fluxos críticos verificados de ponta a ponta).
 
 ## 6.2 Fase 17 — Homologação
 

@@ -120,6 +120,7 @@ const resultadosFumaca = {
   rendererPronto: false,
   ipcAtivo: false,
   banco: null,
+  financas: null,
   errosConsole: [],
   versoes: null,
 };
@@ -310,6 +311,43 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.dashboard = { visivel: false, erro: erro.message };
       }
 
+      // ── Módulo de Finanças: a tela precisa ABRIR sem erro de console ────
+      // A tela de Finanças carregava resumo e orçamentos, mas o filtro de
+      // categorias usava `insertBefore(opcao, 0)`. O segundo parâmetro de
+      // `insertBefore` é um Node de referência, não um índice: o TypeError
+      // derrubava `carregarFinancas` no meio, o HISTÓRICO nunca carregava e a
+      // tela acusava "Falha de comunicação com o núcleo" com ponte e banco
+      // intactos. Nenhum teste de núcleo enxergaria isso — a falha só existe
+      // na tela real, já montada, então ela é aberta aqui e exigida limpa.
+      try {
+        const financas = await janela.webContents.executeJavaScript(
+          `(async () => {
+            const medir = () => ({
+              aviso: document.getElementById('aviso-financas')?.textContent ?? '',
+              historico: document.getElementById('lista-transacoes')?.textContent ?? '',
+              categorias: document.getElementById('filtro-categoria-financa')?.options.length ?? 0,
+              orcamentos: document.getElementById('lista-orcamentos')?.textContent ?? '',
+            });
+            window.__irParaFinancas();
+            const limite = Date.now() + 8000;
+            while (Date.now() < limite) {
+              await new Promise((r) => setTimeout(r, 200));
+              const estado = medir();
+              // o histórico e o filtro só existem se carregarFinancas
+              // terminou sem exceção no meio do caminho
+              if (estado.historico && estado.categorias > 1) {
+                return Object.assign({ abriu: true }, estado);
+              }
+            }
+            return Object.assign({ abriu: false }, medir());
+          })()`,
+          true,
+        );
+        resultadosFumaca.financas = financas;
+      } catch (erro) {
+        resultadosFumaca.financas = { abriu: false, erro: erro.message };
+      }
+
       const bancoOk =
         resultadosFumaca.banco?.inicializado === true && resultadosFumaca.banco.versaoSchema >= 1;
       const jogadorOk =
@@ -317,6 +355,8 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.jogador?.criado === true &&
         resultadosFumaca.jogador?.carregado === true;
       const dashboardOk = resultadosFumaca.dashboard?.visivel === true;
+      const financasOk =
+        resultadosFumaca.financas?.abriu === true && !resultadosFumaca.financas.aviso;
       const ok =
         resultadosFumaca.aplicacaoIniciou &&
         resultadosFumaca.janelaCriada &&
@@ -325,12 +365,13 @@ function executarTesteFumaca(janela) {
         resultadosFumaca.rendererPronto &&
         resultadosFumaca.ipcAtivo &&
         dashboardOk &&
+        financasOk &&
         resultadosFumaca.errosConsole.length === 0;
       encerrarFumaca(
         ok,
         ok
           ? null
-          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, dashboard=${JSON.stringify(resultadosFumaca.dashboard ?? null)}, errosConsole=${resultadosFumaca.errosConsole.length}`,
+          : `aplicacaoIniciou=${resultadosFumaca.aplicacaoIniciou}, janelaCriada=${resultadosFumaca.janelaCriada}, bancoOk=${bancoOk}, jogadorOk=${JSON.stringify(resultadosFumaca.jogador)}, rendererPronto=${resultadosFumaca.rendererPronto}, ipcAtivo=${resultadosFumaca.ipcAtivo}, dashboard=${JSON.stringify(resultadosFumaca.dashboard ?? null)}, financas=${JSON.stringify(resultadosFumaca.financas ?? null)}, errosConsole=${resultadosFumaca.errosConsole.length}`,
       );
     } catch (erro) {
       encerrarFumaca(false, `falha na verificação do renderer: ${erro.message}`);
